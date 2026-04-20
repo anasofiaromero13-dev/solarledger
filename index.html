@@ -273,8 +273,13 @@ html,body{height:100%;font-family:var(--sans);background:var(--navy);color:var(-
   </div>
   <div class="deal-card">
     <div class="deal-card-label">Active Deal</div>
-    <div class="deal-card-name">Yarotek Portfolio</div>
-    <div class="deal-card-meta">82 MWdc · North Carolina · $110M CapEx</div>
+    <div class="deal-card-name" id="deal-card-name">Yarotek</div>
+    <div class="deal-card-meta" id="deal-card-meta">82 MWdc · Duke NC</div>
+  </div>
+  <div class="deal-card">
+    <div class="deal-card-label">Portfolio / Project</div>
+    <select id="asset-switcher" onchange="switchAsset(this.value)" style="width:100%;font-family:var(--sans);font-size:12px;padding:6px 8px;border-radius:var(--r);border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);color:rgba(255,255,255,.9)">
+    </select>
   </div>
   <nav class="nav">
     <button class="nav-item active" onclick="go('upload',this)"><span class="nav-num">1</span>Upload Data Room</button>
@@ -283,6 +288,7 @@ html,body{height:100%;font-family:var(--sans);background:var(--navy);color:var(-
     <button class="nav-item" onclick="go('engineering',this)"><span class="nav-num">4</span>Engineering Review</button>
     <button class="nav-item" onclick="go('chat',this)"><span class="nav-num">5</span>Analyst Chat</button>
     <button class="nav-item" onclick="go('memo',this)"><span class="nav-num">6</span>Investment Memo</button>
+    <button class="nav-item" onclick="go('summary',this)"><span class="nav-num">7</span>Portfolio Summary</button>
   </nav>
   <div class="sidebar-foot">Talera · SolarLedger v1.0 · April 2026</div>
 </aside>
@@ -688,39 +694,75 @@ html,body{height:100%;font-family:var(--sans);background:var(--navy);color:var(-
     </div>
   </div>
 
+  <!-- ══ SCREEN 7: PORTFOLIO SUMMARY ══ -->
+  <div class="screen" id="s-summary">
+    <div class="sec-hd mb16"><h2>Portfolio Summary</h2><p>Side-by-side asset returns and risk flags from the institutional engine.</p></div>
+    <div class="card">
+      <div class="card-hd">Asset Comparison</div>
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>Asset</th>
+            <th>IRR</th>
+            <th>NPV ($)</th>
+            <th>Min DSCR</th>
+            <th>Unlevered CapEx ($)</th>
+            <th>Target Test</th>
+          </tr>
+        </thead>
+        <tbody id="portfolio-summary-body"></tbody>
+      </table>
+    </div>
+    <div class="metrics" style="margin-top:16px;grid-template-columns:repeat(3,1fr)">
+      <div class="metric"><div class="metric-label">Blended Portfolio IRR</div><div class="metric-value mv-blue" id="ps-irr">—</div></div>
+      <div class="metric"><div class="metric-label">Blended Portfolio NPV</div><div class="metric-value mv-green" id="ps-npv">—</div></div>
+      <div class="metric"><div class="metric-label">Portfolio Total CapEx</div><div class="metric-value" id="ps-capex">—</div></div>
+    </div>
+    <div class="actions">
+      <button class="btn" onclick="go('memo',document.querySelectorAll('.nav-item')[5])">← Back</button>
+    </div>
+  </div>
+
   </div><!-- /content -->
 </main>
 </div><!-- /app -->
 
+<script src="model_engine.js"></script>
 <script>
 // ── STATE ─────────────────────────────────────────────────────────────────────
-const SCREENS = ['upload','assumptions','model','engineering','chat','memo'];
+const SCREENS = ['upload','assumptions','model','engineering','chat','memo','summary'];
 const TITLES = [
   ['Upload Data Room','Step 1 of 6 — Add all deal documents to begin AI extraction'],
   ['Review Assumptions','Step 2 of 6 — Verify and override AI-extracted values'],
   ['Financial Model','Step 3 of 6 — 35-year projection with live recalculation'],
   ['Engineering Review','Step 4 of 6 — Owner\'s Engineer technical due diligence'],
   ['Analyst Chat','Step 5 of 6 — Natural-language model adjustments'],
-  ['Investment Memo','Step 6 of 6 — Committee-ready deal summary'],
+  ['Investment Memo','Step 6 of 7 — Committee-ready deal summary'],
+  ['Portfolio Summary','Step 7 of 7 — Side-by-side asset comparison'],
 ];
-const CTA = ['Run AI Analysis →','Build Financial Model →','Engineering Review →','Open Analyst Chat →','Generate Memo →','Export Package'];
+const CTA = ['Run AI Analysis →','Build Financial Model →','Engineering Review →','Open Analyst Chat →','Generate Memo →','Portfolio Summary →','Export Package'];
 let curScen = 'base';
-
-// ── BASE MODEL ASSUMPTIONS ────────────────────────────────────────────────────
-const BASE = {
-  mwdc: 82, yield: 1710, avail: 0.985, degrad: 0.004, life: 35,
-  ppa: 59, ppaEsc: 0, ppaTenor: 5,
-  merch: 65, merchEsc: 0.015, curtail: 0.02,
-  capex: 110432, loan: 27500, rate: 0.085, tenor: 20,
-  itc: 0.40, fmv: 142545, discount: 0.08, taxRate: 0.21,
-  opex: { pvo: 479, util: 68, para: 60, uncov: 70, tel: 34, ins: 321, am: 70, at: 19, lc: 113, inv: 0, other: 117, lease: 582 },
-  opexEsc: { pvo:0.02, util:0, para:0.01, uncov:0.02, tel:0.02, ins:0, am:0.02, at:0.02, lc:0, inv:0, other:0, lease:0.02 },
-};
 const SCENS = {
-  base: {irrMult:1, npvMult:1, dscrMult:1},
-  bull: {irrMult:1.10, npvMult:1.18, dscrMult:1.08},
-  bear: {irrMult:0.82, npvMult:0.68, dscrMult:0.87},
+  base: { merchantMult: 1.00 },
+  bull: { merchantMult: 1.10 },
+  bear: { merchantMult: 0.85 },
 };
+
+const TARGET_IRR = 0.10;
+const engine = window.SolarLedger;
+const portfolio = engine.portfolio;
+let activeAsset = portfolio.assets.find(a => a.id === engine.activeAsset) || portfolio.assets[0];
+let latestAssetResult = null;
+let latestPortfolioResult = null;
+
+function deepClone(v){ return JSON.parse(JSON.stringify(v)); }
+function parseNum(raw){
+  return Number(String(raw).replace(/,/g,'').replace('%','').trim()) || 0;
+}
+function parsePct(raw){
+  const cleaned = String(raw).trim();
+  return cleaned.includes('%') ? parseNum(cleaned) / 100 : parseNum(cleaned);
+}
 
 function fmt(n, prefix='', suf='', dec=0) {
   if (n == null) return '—';
@@ -732,84 +774,116 @@ function fmtK(n){ return fmt(n,'$','K',0); }
 function fmtPct(n, dec=1){ return (n*100).toFixed(dec)+'%'; }
 function fmtX(n){ return n.toFixed(2)+'x'; }
 
-// ── CORE FINANCIAL CALCULATIONS ───────────────────────────────────────────────
-function calcModel(scen='base') {
-  const m = SCENS[scen];
-  const yrs = [];
-  for (let i=0; i<BASE.life; i++) {
-    const yr = i+1;
-    const degrad_f = Math.pow(1-BASE.degrad, i);
-    const gross = BASE.mwdc * BASE.yield * BASE.avail * degrad_f;
-    const net = gross * (1 - BASE.curtail);
-    const isPPA = yr <= BASE.ppaTenor;
-    const ppaPrice = BASE.ppa * Math.pow(1+BASE.ppaEsc, i);
-    const merchPrice = BASE.merch * Math.pow(1+BASE.merchEsc, i);
-    const rev = isPPA ? (net * ppaPrice / 1000) : (net * merchPrice / 1000 * m.irrMult);
-    // OPEX
-    const opexTotal = Object.entries(BASE.opex).reduce((sum, [k,v]) => {
-      return sum + v * Math.pow(1 + (BASE.opexEsc[k]||0), i);
-    }, 0);
-    const ebitda = rev - opexTotal;
-    // Debt
-    const begBal = Math.max(0, BASE.loan - BASE.loan/BASE.tenor * i);
-    const amort  = yr <= BASE.tenor ? BASE.loan/BASE.tenor : 0;
-    const intExp = begBal * BASE.rate;
-    const ds     = amort + intExp;
-    const dscr   = ds > 0 ? ebitda/ds : 0;
-    const cfads  = ebitda - ds;
-    yrs.push({ yr, net, rev, opexTotal, ebitda, ds, dscr, cfads, begBal, amort, intExp });
+function currentScenarioAsset() {
+  const cloned = deepClone(activeAsset);
+  const scen = SCENS[curScen] || SCENS.base;
+  cloned.revenue.merchantPricePerMWh *= scen.merchantMult;
+  return cloned;
+}
+
+function calcModel() {
+  const assetResult = engine.calcAsset(currentScenarioAsset());
+  const portfolioInput = deepClone(portfolio);
+  for (let i = 0; i < portfolioInput.assets.length; i += 1) {
+    if (portfolioInput.assets[i].id === activeAsset.id) {
+      portfolioInput.assets[i] = currentScenarioAsset();
+    }
   }
-  // IRR approximation via NPV
-  const capexTotal = BASE.capex;
-  const itcProc = BASE.fmv * BASE.itc;
-  const equityIn = capexTotal - BASE.loan - itcProc;
-  let npvSum = -equityIn;
-  let cumCF = -equityIn;
-  let payback = null;
-  const cfs = yrs.map(y => y.cfads);
-  cfs.forEach((cf,i)=>{
-    npvSum += cf / Math.pow(1+BASE.discount, i+1);
-    cumCF += cf;
-    if (!payback && cumCF > 0) payback = i+1;
-  });
-  const avgRev = yrs.reduce((s,y)=>s+y.rev,0)/yrs.length;
-  const avgEBITDA = yrs.reduce((s,y)=>s+y.ebitda,0)/yrs.length;
-  const minDSCR = Math.min(...yrs.filter(y=>y.dscr>0).map(y=>y.dscr));
-  const irr = 0.1066 * m.irrMult; // simplified — real XIRR would run here
-  return { yrs, npvSum:npvSum*m.npvMult, irr, minDSCR:minDSCR*m.dscrMult, payback, avgRev, avgEBITDA, cfs };
+  const portfolioResult = engine.calcPortfolio(portfolioInput);
+  return { assetResult, portfolioResult };
+}
+
+function syncAssetFromInputs() {
+  if (!activeAsset) return;
+  activeAsset.technical.mwdc = parseNum(document.getElementById('a-mwdc')?.value || activeAsset.technical.mwdc);
+  activeAsset.technical.yieldKwhPerKwp = parseNum(document.getElementById('a-yield')?.value || activeAsset.technical.yieldKwhPerKwp);
+  activeAsset.technical.availability = parsePct(document.getElementById('a-avail')?.value || activeAsset.technical.availability);
+  activeAsset.technical.degradation = parsePct(document.getElementById('a-degrad')?.value || activeAsset.technical.degradation);
+  activeAsset.technical.assetLifeYears = parseNum(document.getElementById('a-life')?.value || activeAsset.technical.assetLifeYears);
+
+  activeAsset.revenue.ppaPricePerMWh = parseNum(document.getElementById('a-ppa')?.value || activeAsset.revenue.ppaPricePerMWh);
+  activeAsset.revenue.ppaEscalation = parsePct(document.getElementById('a-ppaesc')?.value || activeAsset.revenue.ppaEscalation);
+  activeAsset.revenue.ppaEndYear = parseNum(document.getElementById('a-ppaten')?.value || activeAsset.revenue.ppaEndYear);
+  activeAsset.revenue.merchantPricePerMWh = parseNum(document.getElementById('a-merch')?.value || activeAsset.revenue.merchantPricePerMWh);
+  activeAsset.revenue.merchantEscalation = parsePct(document.getElementById('a-merchesc')?.value || activeAsset.revenue.merchantEscalation);
+  activeAsset.revenue.curtailment = parsePct(document.getElementById('a-curtail')?.value || activeAsset.revenue.curtailment);
+
+  activeAsset.debt.loanSize = parseNum(document.getElementById('a-loan')?.value || activeAsset.debt.loanSize);
+  const combinedItc = parsePct(document.getElementById('a-itc')?.value || (activeAsset.itc.baseRate + activeAsset.itc.adders));
+  activeAsset.itc.baseRate = combinedItc;
+  activeAsset.itc.adders = 0;
+  activeAsset.itc.fmv = parseNum(document.getElementById('a-fmv')?.value || activeAsset.itc.fmv);
+}
+
+function hydrateInputsFromAsset(asset) {
+  setInput('a-mwdc', asset.technical.mwdc);
+  setInput('a-yield', asset.technical.yieldKwhPerKwp);
+  setInput('a-avail', (asset.technical.availability * 100).toFixed(1) + '%');
+  setInput('a-degrad', (asset.technical.degradation * 100).toFixed(2) + '%');
+  setInput('a-life', asset.technical.assetLifeYears);
+  setInput('a-ppa', asset.revenue.ppaPricePerMWh.toFixed(2));
+  setInput('a-ppaesc', (asset.revenue.ppaEscalation * 100).toFixed(2) + '%');
+  setInput('a-ppaten', asset.revenue.ppaEndYear);
+  setInput('a-merch', asset.revenue.merchantPricePerMWh.toFixed(2));
+  setInput('a-merchesc', (asset.revenue.merchantEscalation * 100).toFixed(2) + '%');
+  setInput('a-curtail', (asset.revenue.curtailment * 100).toFixed(2) + '%');
+  setInput('a-loan', Math.round(asset.debt.loanSize).toLocaleString());
+  setInput('a-itc', ((asset.itc.baseRate + asset.itc.adders) * 100).toFixed(1) + '%');
+  setInput('a-fmv', Math.round(asset.itc.fmv).toLocaleString());
+}
+
+function setInput(id, val){
+  const el = document.getElementById(id);
+  if (el) el.value = val;
 }
 
 // ── UI UPDATES ─────────────────────────────────────────────────────────────────
 function recalc() {
-  const res = calcModel(curScen);
-  const irrPre = (res.irr * 1.21).toFixed(1) + '%';
-  const levPreIRR = (res.irr * 1.21).toFixed(1);
-  const levPostIRR = (res.irr * 100).toFixed(1);
-  const unlPre = (res.irr * 1.14).toFixed(1);
-  const unlPost = (res.irr * 0.879).toFixed(1);
-  const moic = (5.8 * SCENS[curScen].irrMult).toFixed(1);
-  const ebitdaMargin = (76.3 * SCENS[curScen].dscrMult).toFixed(1);
-  // Metrics
-  setTxt('m-irr', levPreIRR+'%');
-  setTxt('m-npv', '$'+Math.round(res.npvSum/1000).toLocaleString());
-  setTxt('m-dscr', res.minDSCR.toFixed(2)+'x');
-  setTxt('m-payback', (res.payback||11)+' yrs');
-  // Returns box
-  setTxt('r-unlev-pre', unlPre+'%');
-  setTxt('r-unlev-post', unlPost+'%');
-  setTxt('r-lev-pre', levPreIRR+'%');
-  setTxt('r-lev-post', levPostIRR+'%');
-  setTxt('r-moic', moic+'x');
-  setTxt('r-ebitda', ebitdaMargin+'%');
-  // Chat live state
-  setTxt('ls-irr', levPreIRR+'%');
-  setTxt('ls-dscr', res.minDSCR.toFixed(2)+'x');
-  setTxt('ls-npv', '$'+Math.round(res.npvSum/1000).toLocaleString()+'K');
-  setTxt('memo-irr', levPreIRR+'%');
-  buildRevTable(res.yrs);
-  buildOpexTable(res.yrs);
-  buildDebtTable(res.yrs);
-  buildChart(res.yrs);
+  syncAssetFromInputs();
+  const res = calcModel();
+  latestAssetResult = res.assetResult;
+  latestPortfolioResult = res.portfolioResult;
+
+  const m = latestAssetResult.metrics;
+  const irr = m.irr || 0;
+  const npv = m.npv || 0;
+  const minDscr = m.minDscr || 0;
+  const payback = m.paybackYear || null;
+  const ebitdaMargin = m.totalRevenue ? (m.totalEbitda / m.totalRevenue) : 0;
+
+  setTxt('m-irr', fmtPct(irr));
+  setTxt('m-npv', '$' + Math.round(npv).toLocaleString());
+  setTxt('m-dscr', fmtX(minDscr));
+  setTxt('m-payback', (payback || '—') + (payback ? ' yrs' : ''));
+
+  setTxt('r-unlev-pre', fmtPct(irr));
+  setTxt('r-unlev-post', fmtPct(irr * 0.85));
+  setTxt('r-lev-pre', fmtPct(irr));
+  setTxt('r-lev-post', fmtPct(irr * 0.9));
+  setTxt('r-moic', m.moic ? m.moic.toFixed(2) + 'x' : '—');
+  setTxt('r-ebitda', (ebitdaMargin * 100).toFixed(1) + '%');
+
+  setTxt('ls-ppa', '$' + activeAsset.revenue.ppaPricePerMWh.toFixed(2) + '/MWh');
+  setTxt('ls-merch', '$' + activeAsset.revenue.merchantPricePerMWh.toFixed(2) + '/MWh');
+  setTxt('ls-irr', fmtPct(irr));
+  setTxt('ls-dscr', fmtX(minDscr));
+  setTxt('ls-npv', '$' + Math.round(npv).toLocaleString() + 'K');
+  setTxt('memo-irr', fmtPct(irr));
+
+  const capexTotal = activeAsset.capex.lines.reduce((s,l)=>s + (Number(l.amount) || 0),0);
+  setTxt('su-loan', Math.round(activeAsset.debt.loanSize).toLocaleString());
+  setTxt('su-itc', Math.round(latestAssetResult.cashflows.itcAmount).toLocaleString());
+  setTxt('su-equity', Math.round(latestAssetResult.cashflows.equityAtCOD).toLocaleString());
+  setTxt('su-total', Math.round(capexTotal).toLocaleString());
+  setTxt('a-capex-total', Math.round(capexTotal).toLocaleString());
+  setTxt('a-capex-wdc', '$' + (capexTotal / (activeAsset.technical.mwdc * 1000)).toFixed(3));
+
+  buildRevTable(latestAssetResult.years);
+  buildOpexTable(latestAssetResult.years);
+  buildDebtTable(latestAssetResult.years);
+  buildChart(latestAssetResult.years);
+  buildPortfolioSummary();
+  refreshDealCard();
 }
 
 function setTxt(id, val) {
@@ -821,39 +895,36 @@ function setTxt(id, val) {
 const SEL_YRS = [0,2,4,6,9,14,19,24,34]; // indices for yr 1,3,5,7,10,15,20,25,35
 
 function buildRevTable(yrs) {
+  const ppaYears = activeAsset.revenue.ppaEndYear;
   const rows = [
-    { label:'Net Generation (MWh)', vals: SEL_YRS.map(i=>Math.round(yrs[i].net).toLocaleString()), cls:'' },
+    { label:'Net Generation (MWh)', vals: SEL_YRS.map(i=>Math.round(yrs[i].netGenerationMWh).toLocaleString()), cls:'' },
     { label:'Effective Price ($/MWh)', vals: SEL_YRS.map(i=>{
-      const y=yrs[i]; return y.net>0?'$'+(y.rev/y.net*1000).toFixed(1):'—';
+      const y=yrs[i]; return y.netGenerationMWh>0?'$'+y.realizedPricePerMWh.toFixed(1):'—';
     }), cls:''},
     { label:'Contracted Revenue ($\'000)', vals: SEL_YRS.map(i=>{
-      return i<BASE.ppaTenor ? '$'+Math.round(yrs[i].rev).toLocaleString():'-';
+      return (i+1)<=ppaYears ? '$'+Math.round(yrs[i].revenue).toLocaleString():'-';
     }), cls:''},
     { label:'Merchant Revenue ($\'000)', vals: SEL_YRS.map(i=>{
-      return i>=BASE.ppaTenor ? '$'+Math.round(yrs[i].rev).toLocaleString():'-';
+      return (i+1)>ppaYears ? '$'+Math.round(yrs[i].revenue).toLocaleString():'-';
     }), cls:''},
-    { label:'TOTAL GROSS REVENUE ($\'000)', vals: SEL_YRS.map(i=>'$'+Math.round(yrs[i].rev).toLocaleString()), cls:'total', bold:true },
-    { label:'(-) Total OPEX ($\'000)', vals: SEL_YRS.map(i=>'('+Math.round(yrs[i].opexTotal).toLocaleString()+')'), cls:'', neg:true },
+    { label:'TOTAL GROSS REVENUE ($\'000)', vals: SEL_YRS.map(i=>'$'+Math.round(yrs[i].revenue).toLocaleString()), cls:'total', bold:true },
+    { label:'(-) Total OPEX ($\'000)', vals: SEL_YRS.map(i=>'('+Math.round(yrs[i].totalOpex).toLocaleString()+')'), cls:'', neg:true },
     { label:'EBITDA ($\'000)', vals: SEL_YRS.map(i=>'$'+Math.round(yrs[i].ebitda).toLocaleString()), cls:'sub-total' },
-    { label:'EBITDA Margin', vals: SEL_YRS.map(i=>(yrs[i].ebitda/yrs[i].rev*100).toFixed(1)+'%'), cls:'' },
+    { label:'EBITDA Margin', vals: SEL_YRS.map(i=>yrs[i].revenue ? (yrs[i].ebitda/yrs[i].revenue*100).toFixed(1)+'%' : '—'), cls:'' },
   ];
   const tbody = document.getElementById('rev-tbody');
   tbody.innerHTML = rows.map(r=>`<tr class="${r.cls}"><td class="${r.bold?'bold':''}">${r.label}</td>${r.vals.map(v=>`<td class="val ${r.neg?'neg':r.cls==='total'?'pos':''}">${v}</td>`).join('')}</tr>`).join('');
 }
 
 function buildOpexTable(yrs) {
-  const OPEX_LABELS = {pvo:'PV O&M',util:'Utility O&M',para:'Parasitic Load',uncov:'Uncovered O&M',tel:'Telecom',ins:'Insurance',am:'Asset Mgmt',at:'Audit & Tax',lc:'LC/Fin Fees',inv:'Inverter Reserve',other:'Other OPEX',lease:'Oper. Lease'};
   const SEL5 = [0,4,9,19,34];
   const rows = [];
-  Object.entries(BASE.opex).forEach(([k,v])=>{
-    const vals = SEL5.map(i=>{
-      const computed = v * Math.pow(1+(BASE.opexEsc[k]||0), i);
-      return Math.round(computed).toLocaleString();
-    });
-    rows.push(`<tr><td>${OPEX_LABELS[k]||k}</td>${vals.map(v=>`<td class="val">${v}</td>`).join('')}</tr>`);
+  activeAsset.opex.lines.forEach((line)=>{
+    const vals = SEL5.map(i => Math.round(yrs[i].opexByLine[line.name] || 0).toLocaleString());
+    rows.push(`<tr><td>${line.name}</td>${vals.map(v=>`<td class="val">${v}</td>`).join('')}</tr>`);
   });
   // Total
-  const totals = SEL5.map(i=>Math.round(yrs[i].opexTotal).toLocaleString());
+  const totals = SEL5.map(i=>Math.round(yrs[i].totalOpex).toLocaleString());
   rows.push(`<tr class="total"><td class="bold">TOTAL OPEX</td>${totals.map(v=>`<td class="val">(${v})</td>`).join('')}</tr>`);
   document.getElementById('opex-tbody').innerHTML = rows.join('');
 }
@@ -861,13 +932,13 @@ function buildOpexTable(yrs) {
 function buildDebtTable(yrs) {
   const SEL5 = [0,4,9,14,19];
   const rows = [
-    {lbl:'Beginning Balance ($\'000)', vals: SEL5.map(i=>Math.round(yrs[i].begBal).toLocaleString()), cls:''},
-    {lbl:'(-) Amortization', vals: SEL5.map(i=>Math.round(yrs[i].amort).toLocaleString()), cls:''},
-    {lbl:'Interest Expense', vals: SEL5.map(i=>'('+Math.round(yrs[i].intExp).toLocaleString()+')'), cls:'', neg:true},
-    {lbl:'Total Debt Service', vals: SEL5.map(i=>'('+Math.round(yrs[i].ds).toLocaleString()+')'), cls:'sub-total', neg:true},
+    {lbl:'Beginning Balance ($\'000)', vals: SEL5.map(i=>Math.round(yrs[i].debtBeginningBalance).toLocaleString()), cls:''},
+    {lbl:'(-) Amortization', vals: SEL5.map(i=>Math.round(yrs[i].principalRepayment).toLocaleString()), cls:''},
+    {lbl:'Interest Expense', vals: SEL5.map(i=>'('+Math.round(yrs[i].interestExpense).toLocaleString()+')'), cls:'', neg:true},
+    {lbl:'Total Debt Service', vals: SEL5.map(i=>'('+Math.round(yrs[i].debtService).toLocaleString()+')'), cls:'sub-total', neg:true},
     {lbl:'EBITDA ($\'000)', vals: SEL5.map(i=>'$'+Math.round(yrs[i].ebitda).toLocaleString()), cls:''},
-    {lbl:'CFADS ($\'000)', vals: SEL5.map(i=>'$'+Math.round(yrs[i].cfads).toLocaleString()), cls:'sub-total'},
-    {lbl:'DSCR', vals: SEL5.map(i=>yrs[i].dscr>0?yrs[i].dscr.toFixed(2)+'x':'n/a'), cls:'total'},
+    {lbl:'CFADS ($\'000)', vals: SEL5.map(i=>'$'+Math.round(yrs[i].cashAfterDebtService).toLocaleString()), cls:'sub-total'},
+    {lbl:'DSCR', vals: SEL5.map(i=>yrs[i].dscr?yrs[i].dscr.toFixed(2)+'x':'n/a'), cls:'total'},
   ];
   document.getElementById('debt-tbody').innerHTML = rows.map(r=>
     `<tr class="${r.cls}"><td class="bold">${r.lbl}</td>${r.vals.map(v=>`<td class="val ${r.neg?'neg':r.cls==='total'?'pos':''}">${v}</td>`).join('')}</tr>`
@@ -878,7 +949,7 @@ function buildChart(yrs) {
   const container = document.getElementById('cf-chart');
   if (!container) return;
   container.innerHTML = '';
-  const cfs = yrs.map(y=>y.cfads);
+  const cfs = yrs.map(y=>y.cashAfterDebtService);
   const max = Math.max(...cfs);
   const colors = ['#1565C7','#1976D2','#1E88E5','#2196F3','#42A5F5'];
   cfs.forEach((cf,i)=>{
@@ -886,8 +957,8 @@ function buildChart(yrs) {
     bar.className = 'chart-bar';
     const pct = Math.min((cf/max)*160, 160);
     const col = curScen==='bear'?'#E65100':curScen==='bull'?'#2E7D32':colors[Math.min(Math.floor(i/7),4)];
-    bar.style.cssText = `height:${Math.max(pct,2)}px;background:${col};opacity:${0.4+i/BASE.life*0.55}`;
-    if (i%5===0||i===BASE.life-1) {
+    bar.style.cssText = `height:${Math.max(pct,2)}px;background:${col};opacity:${0.4+i/35*0.55}`;
+    if (i%5===0||i===34) {
       const lbl = document.createElement('div');
       lbl.className = 'chart-bar-label';
       lbl.textContent = 'Y'+(i+1);
@@ -895,6 +966,53 @@ function buildChart(yrs) {
     }
     container.appendChild(bar);
   });
+}
+
+function buildPortfolioSummary() {
+  const body = document.getElementById('portfolio-summary-body');
+  if (!body || !latestPortfolioResult) return;
+  body.innerHTML = latestPortfolioResult.summaryByAsset.map((row) => {
+    const capex = row.id === activeAsset.id
+      ? activeAsset.capex.lines.reduce((s,l)=>s + (Number(l.amount)||0),0)
+      : (portfolio.assets.find(a=>a.id===row.id)?.capex.lines || []).reduce((s,l)=>s + (Number(l.amount)||0),0);
+    const irr = row.metrics.irr || 0;
+    let badge = '<span class="badge badge-red">Red</span>';
+    if (irr >= TARGET_IRR + 0.01) badge = '<span class="badge badge-green">Green</span>';
+    else if (irr >= TARGET_IRR) badge = '<span class="badge badge-amber">Amber</span>';
+    return `<tr>
+      <td>${row.name}</td>
+      <td class="num">${fmtPct(irr)}</td>
+      <td class="num">$${Math.round(row.metrics.npv || 0).toLocaleString()}</td>
+      <td class="num">${row.metrics.minDscr ? row.metrics.minDscr.toFixed(2)+'x' : '—'}</td>
+      <td class="num">$${Math.round(capex).toLocaleString()}</td>
+      <td>${badge}</td>
+    </tr>`;
+  }).join('');
+
+  setTxt('ps-irr', fmtPct(latestPortfolioResult.blended.irr || 0));
+  setTxt('ps-npv', '$' + Math.round(latestPortfolioResult.blended.npv || 0).toLocaleString());
+  setTxt('ps-capex', '$' + Math.round(latestPortfolioResult.blended.totalUnleveredCapex || 0).toLocaleString());
+}
+
+function refreshDealCard() {
+  setTxt('deal-card-name', activeAsset.name);
+  setTxt('deal-card-meta', `${activeAsset.technical.mwdc} MWdc · ${activeAsset.region}`);
+}
+
+function initAssetSwitcher() {
+  const select = document.getElementById('asset-switcher');
+  if (!select) return;
+  select.innerHTML = portfolio.assets.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+  select.value = activeAsset.id;
+}
+
+function switchAsset(assetId) {
+  const found = portfolio.assets.find(a => a.id === assetId);
+  if (!found) return;
+  activeAsset = found;
+  hydrateInputsFromAsset(activeAsset);
+  refreshDealCard();
+  recalc();
 }
 
 // ── NAVIGATION ────────────────────────────────────────────────────────────────
@@ -934,7 +1052,7 @@ const CHAT_RESPONSES = [
   { trigger: /ppa.*(escal|2%|2 per)/i,
     reply: "Done. PPA escalation updated to 2.0%/yr starting Year 3.",
     changes: [{field:'PPA Escalation (Yr 3+)', from:'0.0%/yr', to:'2.0%/yr'}],
-    recalc: () => { BASE.ppaEsc = 0.02; } },
+    recalc: () => { activeAsset.revenue.ppaEscalation = 0.02; recalc(); } },
   { trigger: /bear|merchant.*(down|-15%|drop)/i,
     reply: "Bear case applied: merchant price reduced 15%. IRR sensitivity: base 12.9% → bear 10.6%.",
     changes: [{field:'Scenario', from:'Base', to:'Bear (-15% merchant)'}],
@@ -946,7 +1064,7 @@ const CHAT_RESPONSES = [
   { trigger: /o.?m.*(20%|increase)|opex.*20/i,
     reply: "O&M costs increased 20% across all NC assets. EBITDA margin compresses ~2.1pp. IRR impact: -0.8pp.",
     changes: [{field:'O&M (all assets)', from:'$479K/yr base', to:'$575K/yr base (+20%)'}],
-    recalc: () => { BASE.opex.pvo = Math.round(479*1.2); recalc(); } },
+    recalc: () => { if (activeAsset.opex.lines[0]) activeAsset.opex.lines[0].year1 *= 1.2; recalc(); } },
   { trigger: /contingency|3\.5%|5%/i,
     reply: "Contingency updated. Total CapEx recalculated. IRR impact: minimal at this level.",
     changes: [{field:'Contingency', from:'$3,130K (3.5%)', to:'$4,472K (5.0%)'}],
@@ -957,7 +1075,7 @@ const CHAT_RESPONSES = [
   { trigger: /merchant|post-ppa|70/i,
     reply: "Merchant price updated to $70/MWh post-PPA. Levered IRR improves from 12.9% to 14.1%. NPV increases by approximately $4.2M.",
     changes: [{field:'Merchant Price', from:'$65/MWh', to:'$70/MWh'}],
-    recalc: () => { BASE.merch = 70; recalc(); } },
+    recalc: () => { activeAsset.revenue.merchantPricePerMWh = 70; recalc(); } },
 ];
 
 function sendChat() {
@@ -1007,6 +1125,9 @@ function addAuditEntry(field, from, to, by) {
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
+initAssetSwitcher();
+hydrateInputsFromAsset(activeAsset);
+refreshDealCard();
 recalc();
 </script>
 </body>
