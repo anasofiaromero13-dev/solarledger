@@ -273,13 +273,11 @@ html,body{height:100%;font-family:var(--sans);background:var(--navy);color:var(-
   </div>
   <div class="deal-card">
     <div class="deal-card-label">Active Deal</div>
-    <div class="deal-card-name" id="deal-card-name">Yarotek</div>
-    <div class="deal-card-meta" id="deal-card-meta">82 MWdc · Duke NC</div>
-  </div>
-  <div class="deal-card">
-    <div class="deal-card-label">Portfolio / Project</div>
     <select id="asset-switcher" onchange="switchAsset(this.value)" style="width:100%;font-family:var(--sans);font-size:12px;padding:6px 8px;border-radius:var(--r);border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);color:rgba(255,255,255,.9)">
     </select>
+    <div class="deal-card-name" id="deal-card-name" style="margin-top:8px">Yarotek Portfolio</div>
+    <div class="deal-card-meta" id="deal-card-meta">82 MWdc · Duke NC · Utility-Scale Development</div>
+    <div style="margin-top:6px"><span class="badge badge-blue" id="deal-card-badge">Development</span></div>
   </div>
   <nav class="nav">
     <button class="nav-item active" onclick="go('upload',this)"><span class="nav-num">1</span>Upload Data Room</button>
@@ -731,299 +729,227 @@ html,body{height:100%;font-family:var(--sans);background:var(--navy);color:var(-
 
 <script src="model_engine.js"></script>
 <script>
-// ── STATE ─────────────────────────────────────────────────────────────────────
 const SCREENS = ['upload','assumptions','model','engineering','chat','memo','summary'];
 const TITLES = [
-  ['Upload Data Room','Step 1 of 6 — Add all deal documents to begin AI extraction'],
-  ['Review Assumptions','Step 2 of 6 — Verify and override AI-extracted values'],
-  ['Financial Model','Step 3 of 6 — 35-year projection with live recalculation'],
-  ['Engineering Review','Step 4 of 6 — Owner\'s Engineer technical due diligence'],
-  ['Analyst Chat','Step 5 of 6 — Natural-language model adjustments'],
+  ['Upload Data Room','Step 1 of 7 — Add all deal documents to begin AI extraction'],
+  ['Review Assumptions','Step 2 of 7 — Verify and override AI-extracted values'],
+  ['Financial Model','Step 3 of 7 — 35-year projection with live recalculation'],
+  ['Engineering Review','Step 4 of 7 — Owner\'s Engineer technical due diligence'],
+  ['Analyst Chat','Step 5 of 7 — Natural-language model adjustments'],
   ['Investment Memo','Step 6 of 7 — Committee-ready deal summary'],
   ['Portfolio Summary','Step 7 of 7 — Side-by-side asset comparison'],
 ];
 const CTA = ['Run AI Analysis →','Build Financial Model →','Engineering Review →','Open Analyst Chat →','Generate Memo →','Portfolio Summary →','Export Package'];
-let curScen = 'base';
-const SCENS = {
-  base: { merchantMult: 1.00 },
-  bull: { merchantMult: 1.10 },
-  bear: { merchantMult: 0.85 },
-};
-
 const TARGET_IRR = 0.10;
 const engine = window.SolarLedger;
-const portfolio = engine.portfolio;
-let activeAsset = portfolio.assets.find(a => a.id === engine.activeAsset) || portfolio.assets[0];
-let latestAssetResult = null;
-let latestPortfolioResult = null;
+const assetEntries = Object.entries(engine.assets);
+let activeAssetKey = engine.activeAsset || assetEntries[0][0];
+let activeAsset = engine.assets[activeAssetKey];
+let latestResult = null;
 
-function deepClone(v){ return JSON.parse(JSON.stringify(v)); }
-function parseNum(raw){
-  return Number(String(raw).replace(/,/g,'').replace('%','').trim()) || 0;
-}
-function parsePct(raw){
-  const cleaned = String(raw).trim();
-  return cleaned.includes('%') ? parseNum(cleaned) / 100 : parseNum(cleaned);
-}
-
-function fmt(n, prefix='', suf='', dec=0) {
-  if (n == null) return '—';
-  const abs = Math.abs(n);
-  const s = abs.toLocaleString('en-US', {minimumFractionDigits:dec, maximumFractionDigits:dec});
-  return (n<0?'(':'') + prefix + s + suf + (n<0?')':'');
-}
-function fmtK(n){ return fmt(n,'$','K',0); }
-function fmtPct(n, dec=1){ return (n*100).toFixed(dec)+'%'; }
-function fmtX(n){ return n.toFixed(2)+'x'; }
-
-function currentScenarioAsset() {
-  const cloned = deepClone(activeAsset);
-  const scen = SCENS[curScen] || SCENS.base;
-  cloned.revenue.merchantPricePerMWh *= scen.merchantMult;
-  return cloned;
-}
-
-function calcModel() {
-  const assetResult = engine.calcAsset(currentScenarioAsset());
-  const portfolioInput = deepClone(portfolio);
-  for (let i = 0; i < portfolioInput.assets.length; i += 1) {
-    if (portfolioInput.assets[i].id === activeAsset.id) {
-      portfolioInput.assets[i] = currentScenarioAsset();
-    }
-  }
-  const portfolioResult = engine.calcPortfolio(portfolioInput);
-  return { assetResult, portfolioResult };
-}
+function parseNum(raw){ return Number(String(raw).replace(/,/g,'').replace('%','').trim()) || 0; }
+function parsePct(raw){ const s = String(raw).trim(); return s.includes('%') ? parseNum(s)/100 : parseNum(s); }
+function fmtPct(n, d=1){ return n == null ? '—' : (n*100).toFixed(d)+'%'; }
+function fmtX(n){ return n == null ? '—' : n.toFixed(2)+'x'; }
+function setTxt(id, val){ const el=document.getElementById(id); if(el) el.textContent=val; }
+function setInput(id, val){ const el=document.getElementById(id); if(el) el.value=val; }
 
 function syncAssetFromInputs() {
-  if (!activeAsset) return;
-  activeAsset.technical.mwdc = parseNum(document.getElementById('a-mwdc')?.value || activeAsset.technical.mwdc);
-  activeAsset.technical.yieldKwhPerKwp = parseNum(document.getElementById('a-yield')?.value || activeAsset.technical.yieldKwhPerKwp);
-  activeAsset.technical.availability = parsePct(document.getElementById('a-avail')?.value || activeAsset.technical.availability);
-  activeAsset.technical.degradation = parsePct(document.getElementById('a-degrad')?.value || activeAsset.technical.degradation);
-  activeAsset.technical.assetLifeYears = parseNum(document.getElementById('a-life')?.value || activeAsset.technical.assetLifeYears);
-
-  activeAsset.revenue.ppaPricePerMWh = parseNum(document.getElementById('a-ppa')?.value || activeAsset.revenue.ppaPricePerMWh);
-  activeAsset.revenue.ppaEscalation = parsePct(document.getElementById('a-ppaesc')?.value || activeAsset.revenue.ppaEscalation);
-  activeAsset.revenue.ppaEndYear = parseNum(document.getElementById('a-ppaten')?.value || activeAsset.revenue.ppaEndYear);
-  activeAsset.revenue.merchantPricePerMWh = parseNum(document.getElementById('a-merch')?.value || activeAsset.revenue.merchantPricePerMWh);
-  activeAsset.revenue.merchantEscalation = parsePct(document.getElementById('a-merchesc')?.value || activeAsset.revenue.merchantEscalation);
-  activeAsset.revenue.curtailment = parsePct(document.getElementById('a-curtail')?.value || activeAsset.revenue.curtailment);
-
-  activeAsset.debt.loanSize = parseNum(document.getElementById('a-loan')?.value || activeAsset.debt.loanSize);
-  const combinedItc = parsePct(document.getElementById('a-itc')?.value || (activeAsset.itc.baseRate + activeAsset.itc.adders));
-  activeAsset.itc.baseRate = combinedItc;
-  activeAsset.itc.adders = 0;
-  activeAsset.itc.fmv = parseNum(document.getElementById('a-fmv')?.value || activeAsset.itc.fmv);
+  const i = activeAsset.inputs;
+  i.mwdc = parseNum(document.getElementById('a-mwdc')?.value || i.mwdc);
+  i.yieldKwhKwp = parseNum(document.getElementById('a-yield')?.value || i.yieldKwhKwp);
+  i.availabilityFactor = parsePct(document.getElementById('a-avail')?.value || i.availabilityFactor);
+  i.annualDegradation = parsePct(document.getElementById('a-degrad')?.value || i.annualDegradation);
+  i.assetLife = parseNum(document.getElementById('a-life')?.value || i.assetLife);
+  i.ppaPriceYr1 = parseNum(document.getElementById('a-ppa')?.value || i.ppaPriceYr1);
+  i.ppaEscalation = parsePct(document.getElementById('a-ppaesc')?.value || i.ppaEscalation);
+  i.ppaTenor = parseNum(document.getElementById('a-ppaten')?.value || i.ppaTenor);
+  i.merchantPriceYr1 = parseNum(document.getElementById('a-merch')?.value || i.merchantPriceYr1);
+  i.merchantEscalation = parsePct(document.getElementById('a-merchesc')?.value || i.merchantEscalation);
+  i.curtailment = parsePct(document.getElementById('a-curtail')?.value || i.curtailment);
+  i.loanAmount = parseNum(document.getElementById('a-loan')?.value || i.loanAmount);
+  i.itcRate = parsePct(document.getElementById('a-itc')?.value || i.itcRate);
+  i.fmv = parseNum(document.getElementById('a-fmv')?.value || i.fmv);
 }
 
 function hydrateInputsFromAsset(asset) {
-  setInput('a-mwdc', asset.technical.mwdc);
-  setInput('a-yield', asset.technical.yieldKwhPerKwp);
-  setInput('a-avail', (asset.technical.availability * 100).toFixed(1) + '%');
-  setInput('a-degrad', (asset.technical.degradation * 100).toFixed(2) + '%');
-  setInput('a-life', asset.technical.assetLifeYears);
-  setInput('a-ppa', asset.revenue.ppaPricePerMWh.toFixed(2));
-  setInput('a-ppaesc', (asset.revenue.ppaEscalation * 100).toFixed(2) + '%');
-  setInput('a-ppaten', asset.revenue.ppaEndYear);
-  setInput('a-merch', asset.revenue.merchantPricePerMWh.toFixed(2));
-  setInput('a-merchesc', (asset.revenue.merchantEscalation * 100).toFixed(2) + '%');
-  setInput('a-curtail', (asset.revenue.curtailment * 100).toFixed(2) + '%');
-  setInput('a-loan', Math.round(asset.debt.loanSize).toLocaleString());
-  setInput('a-itc', ((asset.itc.baseRate + asset.itc.adders) * 100).toFixed(1) + '%');
-  setInput('a-fmv', Math.round(asset.itc.fmv).toLocaleString());
+  const i = asset.inputs;
+  setInput('a-mwdc', i.mwdc || 0);
+  setInput('a-yield', i.yieldKwhKwp || 0);
+  setInput('a-avail', ((i.availabilityFactor || 0) * 100).toFixed(1) + '%');
+  setInput('a-degrad', ((i.annualDegradation || 0) * 100).toFixed(2) + '%');
+  setInput('a-life', i.assetLife || 0);
+  setInput('a-ppa', (i.ppaPriceYr1 || 0).toFixed(2));
+  setInput('a-ppaesc', ((i.ppaEscalation || 0) * 100).toFixed(2) + '%');
+  setInput('a-ppaten', i.ppaTenor || 0);
+  setInput('a-merch', (i.merchantPriceYr1 || 0).toFixed(2));
+  setInput('a-merchesc', ((i.merchantEscalation || 0) * 100).toFixed(2) + '%');
+  setInput('a-curtail', ((i.curtailment || 0) * 100).toFixed(2) + '%');
+  setInput('a-loan', Math.round(i.loanAmount || 0).toLocaleString());
+  setInput('a-itc', ((i.itcRate || 0) * 100).toFixed(1) + '%');
+  setInput('a-fmv', Math.round(i.fmv || 0).toLocaleString());
 }
 
-function setInput(id, val){
-  const el = document.getElementById(id);
-  if (el) el.value = val;
+function refreshDealCard() {
+  const i = activeAsset.inputs;
+  const cap = activeAsset.badgeColor || 'blue';
+  const badgeMap = {
+    blue: ['badge-blue','Development'],
+    teal: ['badge-teal','BESS'],
+    amber: ['badge-amber','Acquisition'],
+    green: ['badge-green','Operating']
+  };
+  const info = badgeMap[cap] || badgeMap.blue;
+  const mwLabel = i.mwdc > 0 ? `${i.mwdc} MWdc` : `${i.mwac || 0} MW`;
+  setTxt('deal-card-name', activeAsset.name);
+  setTxt('deal-card-meta', `${mwLabel} · ${activeAsset.market || 'N/A'} · ${activeAsset.type || 'Asset'}`);
+  const badge = document.getElementById('deal-card-badge');
+  if (badge) { badge.className = `badge ${info[0]}`; badge.textContent = info[1]; }
 }
 
-// ── UI UPDATES ─────────────────────────────────────────────────────────────────
-function recalc() {
-  syncAssetFromInputs();
-  const res = calcModel();
-  latestAssetResult = res.assetResult;
-  latestPortfolioResult = res.portfolioResult;
-
-  const m = latestAssetResult.metrics;
-  const irr = m.irr || 0;
-  const npv = m.npv || 0;
-  const minDscr = m.minDscr || 0;
-  const payback = m.paybackYear || null;
-  const ebitdaMargin = m.totalRevenue ? (m.totalEbitda / m.totalRevenue) : 0;
-
-  setTxt('m-irr', fmtPct(irr));
-  setTxt('m-npv', '$' + Math.round(npv).toLocaleString());
-  setTxt('m-dscr', fmtX(minDscr));
-  setTxt('m-payback', (payback || '—') + (payback ? ' yrs' : ''));
-
-  setTxt('r-unlev-pre', fmtPct(irr));
-  setTxt('r-unlev-post', fmtPct(irr * 0.85));
-  setTxt('r-lev-pre', fmtPct(irr));
-  setTxt('r-lev-post', fmtPct(irr * 0.9));
-  setTxt('r-moic', m.moic ? m.moic.toFixed(2) + 'x' : '—');
-  setTxt('r-ebitda', (ebitdaMargin * 100).toFixed(1) + '%');
-
-  setTxt('ls-ppa', '$' + activeAsset.revenue.ppaPricePerMWh.toFixed(2) + '/MWh');
-  setTxt('ls-merch', '$' + activeAsset.revenue.merchantPricePerMWh.toFixed(2) + '/MWh');
-  setTxt('ls-irr', fmtPct(irr));
-  setTxt('ls-dscr', fmtX(minDscr));
-  setTxt('ls-npv', '$' + Math.round(npv).toLocaleString() + 'K');
-  setTxt('memo-irr', fmtPct(irr));
-
-  const capexTotal = activeAsset.capex.lines.reduce((s,l)=>s + (Number(l.amount) || 0),0);
-  setTxt('su-loan', Math.round(activeAsset.debt.loanSize).toLocaleString());
-  setTxt('su-itc', Math.round(latestAssetResult.cashflows.itcAmount).toLocaleString());
-  setTxt('su-equity', Math.round(latestAssetResult.cashflows.equityAtCOD).toLocaleString());
-  setTxt('su-total', Math.round(capexTotal).toLocaleString());
-  setTxt('a-capex-total', Math.round(capexTotal).toLocaleString());
-  setTxt('a-capex-wdc', '$' + (capexTotal / (activeAsset.technical.mwdc * 1000)).toFixed(3));
-
-  buildRevTable(latestAssetResult.years);
-  buildOpexTable(latestAssetResult.years);
-  buildDebtTable(latestAssetResult.years);
-  buildChart(latestAssetResult.years);
-  buildPortfolioSummary();
-  refreshDealCard();
-}
-
-function setTxt(id, val) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = val;
-}
-
-// ── TABLE BUILDERS ─────────────────────────────────────────────────────────────
-const SEL_YRS = [0,2,4,6,9,14,19,24,34]; // indices for yr 1,3,5,7,10,15,20,25,35
-
-function buildRevTable(yrs) {
-  const ppaYears = activeAsset.revenue.ppaEndYear;
-  const rows = [
-    { label:'Net Generation (MWh)', vals: SEL_YRS.map(i=>Math.round(yrs[i].netGenerationMWh).toLocaleString()), cls:'' },
-    { label:'Effective Price ($/MWh)', vals: SEL_YRS.map(i=>{
-      const y=yrs[i]; return y.netGenerationMWh>0?'$'+y.realizedPricePerMWh.toFixed(1):'—';
-    }), cls:''},
-    { label:'Contracted Revenue ($\'000)', vals: SEL_YRS.map(i=>{
-      return (i+1)<=ppaYears ? '$'+Math.round(yrs[i].revenue).toLocaleString():'-';
-    }), cls:''},
-    { label:'Merchant Revenue ($\'000)', vals: SEL_YRS.map(i=>{
-      return (i+1)>ppaYears ? '$'+Math.round(yrs[i].revenue).toLocaleString():'-';
-    }), cls:''},
-    { label:'TOTAL GROSS REVENUE ($\'000)', vals: SEL_YRS.map(i=>'$'+Math.round(yrs[i].revenue).toLocaleString()), cls:'total', bold:true },
-    { label:'(-) Total OPEX ($\'000)', vals: SEL_YRS.map(i=>'('+Math.round(yrs[i].totalOpex).toLocaleString()+')'), cls:'', neg:true },
-    { label:'EBITDA ($\'000)', vals: SEL_YRS.map(i=>'$'+Math.round(yrs[i].ebitda).toLocaleString()), cls:'sub-total' },
-    { label:'EBITDA Margin', vals: SEL_YRS.map(i=>yrs[i].revenue ? (yrs[i].ebitda/yrs[i].revenue*100).toFixed(1)+'%' : '—'), cls:'' },
-  ];
+function buildRevTable(rows) {
+  const idx = [0,2,4,6,9,14,19,24,Math.min(rows.length-1,34)];
+  const ppaTenor = activeAsset.inputs.ppaTenor || 0;
   const tbody = document.getElementById('rev-tbody');
-  tbody.innerHTML = rows.map(r=>`<tr class="${r.cls}"><td class="${r.bold?'bold':''}">${r.label}</td>${r.vals.map(v=>`<td class="val ${r.neg?'neg':r.cls==='total'?'pos':''}">${v}</td>`).join('')}</tr>`).join('');
-}
-
-function buildOpexTable(yrs) {
-  const SEL5 = [0,4,9,19,34];
-  const rows = [];
-  activeAsset.opex.lines.forEach((line)=>{
-    const vals = SEL5.map(i => Math.round(yrs[i].opexByLine[line.name] || 0).toLocaleString());
-    rows.push(`<tr><td>${line.name}</td>${vals.map(v=>`<td class="val">${v}</td>`).join('')}</tr>`);
-  });
-  // Total
-  const totals = SEL5.map(i=>Math.round(yrs[i].totalOpex).toLocaleString());
-  rows.push(`<tr class="total"><td class="bold">TOTAL OPEX</td>${totals.map(v=>`<td class="val">(${v})</td>`).join('')}</tr>`);
-  document.getElementById('opex-tbody').innerHTML = rows.join('');
-}
-
-function buildDebtTable(yrs) {
-  const SEL5 = [0,4,9,14,19];
-  const getYear = (idx) => yrs[idx] || {};
-  const rows = [
-    {lbl:'Beginning Balance ($\'000)', vals: SEL5.map(i=>Math.round(getYear(i).debtBeginningBalance || 0).toLocaleString()), cls:''},
-    {lbl:'(-) Amortization', vals: SEL5.map(i=>Math.round(getYear(i).principalRepayment || 0).toLocaleString()), cls:''},
-    {lbl:'Interest Expense', vals: SEL5.map(i=>'('+Math.round(getYear(i).interestExpense || 0).toLocaleString()+')'), cls:'', neg:true},
-    {lbl:'Total Debt Service', vals: SEL5.map(i=>'('+Math.round(getYear(i).debtService || 0).toLocaleString()+')'), cls:'sub-total', neg:true},
-    {lbl:'EBITDA ($\'000)', vals: SEL5.map(i=>'$'+Math.round(getYear(i).ebitda || 0).toLocaleString()), cls:''},
-    {lbl:'CFADS ($\'000)', vals: SEL5.map(i=>'$'+Math.round(getYear(i).cfads || 0).toLocaleString()), cls:'sub-total'},
-    {lbl:'DSCR', vals: SEL5.map(i=>getYear(i).dscr ? getYear(i).dscr.toFixed(2)+'x':'n/a'), cls:'total'},
+  if (!tbody) return;
+  const out = [
+    { l:'Net Generation (MWh)', v: idx.map(i=>Math.round((rows[i]||{}).netMWh||0).toLocaleString()) },
+    { l:'Revenue ($\'000)', v: idx.map(i=>'$'+Math.round((rows[i]||{}).revenue||0).toLocaleString()), c:'total' },
+    { l:'Contracted Revenue ($\'000)', v: idx.map(i=>(i+1)<=ppaTenor?'$'+Math.round((rows[i]||{}).revenue||0).toLocaleString():'-') },
+    { l:'Merchant/Toll Revenue ($\'000)', v: idx.map(i=>(i+1)>ppaTenor || activeAsset.inputs.revenueMode==='toll'?'$'+Math.round((rows[i]||{}).revenue||0).toLocaleString():'-') },
+    { l:'(-) Total OPEX ($\'000)', v: idx.map(i=>'('+Math.round((rows[i]||{}).totalOpex||0).toLocaleString()+')'), n:true },
+    { l:'EBITDA ($\'000)', v: idx.map(i=>'$'+Math.round((rows[i]||{}).ebitda||0).toLocaleString()), c:'sub-total' },
+    { l:'EBITDA Margin', v: idx.map(i=> (rows[i] && rows[i].ebitdaMargin!=null) ? (rows[i].ebitdaMargin*100).toFixed(1)+'%' : '—') }
   ];
-  document.getElementById('debt-tbody').innerHTML = rows.map(r=>
-    `<tr class="${r.cls}"><td class="bold">${r.lbl}</td>${r.vals.map(v=>`<td class="val ${r.neg?'neg':r.cls==='total'?'pos':''}">${v}</td>`).join('')}</tr>`
-  ).join('');
+  tbody.innerHTML = out.map(r=>`<tr class="${r.c||''}"><td>${r.l}</td>${r.v.map(v=>`<td class="val ${r.n?'neg':''}">${v}</td>`).join('')}</tr>`).join('');
 }
 
-function buildChart(yrs) {
-  const container = document.getElementById('cf-chart');
-  if (!container) return;
-  container.innerHTML = '';
-  const cfs = yrs.map(y=>y.cashAfterDebtService);
-  const max = Math.max(...cfs);
-  const colors = ['#1565C7','#1976D2','#1E88E5','#2196F3','#42A5F5'];
-  cfs.forEach((cf,i)=>{
-    const bar = document.createElement('div');
-    bar.className = 'chart-bar';
-    const pct = Math.min((cf/max)*160, 160);
-    const col = curScen==='bear'?'#E65100':curScen==='bull'?'#2E7D32':colors[Math.min(Math.floor(i/7),4)];
-    bar.style.cssText = `height:${Math.max(pct,2)}px;background:${col};opacity:${0.4+i/35*0.55}`;
-    if (i%5===0||i===34) {
-      const lbl = document.createElement('div');
-      lbl.className = 'chart-bar-label';
-      lbl.textContent = 'Y'+(i+1);
-      bar.appendChild(lbl);
-    }
-    container.appendChild(bar);
+function buildOpexTable(rows) {
+  const idx = [0,4,9,19,Math.min(rows.length-1,34)];
+  const labels = {
+    pvo:'PV O&M',utilityOM:'Utility O&M',parasiticLoad:'Parasitic Load',uncoveredOM:'Uncovered O&M',
+    telecom:'Telecom',insurance:'Insurance',assetMgmt:'Asset Mgmt',auditTax:'Audit & Tax',lcFees:'LC Fees',
+    otherOpex:'Other OPEX',operatingLease:'Operating Lease',inverterReserve:'Inverter Reserve'
+  };
+  const keys = Object.keys(labels);
+  const tbody = document.getElementById('opex-tbody');
+  if (!tbody) return;
+  const lines = keys.map(k=>`<tr><td>${labels[k]}</td>${idx.map(i=>`<td class="val">${Math.round(((rows[i]||{}).opexByLine||{})[k]||0).toLocaleString()}</td>`).join('')}</tr>`);
+  lines.push(`<tr class="total"><td>TOTAL OPEX</td>${idx.map(i=>`<td class="val">(${Math.round((rows[i]||{}).totalOpex||0).toLocaleString()})</td>`).join('')}</tr>`);
+  tbody.innerHTML = lines.join('');
+}
+
+function buildDebtTable(rows) {
+  const idx = [0,4,9,14,19];
+  const y = i => rows[i] || {};
+  const body = document.getElementById('debt-tbody');
+  if (!body) return;
+  const r = [
+    ['Beginning Balance ($\'000)', idx.map(i=>Math.round(y(i).beginningBalance||0).toLocaleString())],
+    ['(-) Amortization', idx.map(i=>Math.round(y(i).amortization||0).toLocaleString())],
+    ['Interest Expense', idx.map(i=>'('+Math.round(y(i).interest||0).toLocaleString()+')')],
+    ['Total Debt Service', idx.map(i=>'('+Math.round(y(i).totalDebtService||0).toLocaleString()+')')],
+    ['EBITDA ($\'000)', idx.map(i=>'$'+Math.round(y(i).ebitda||0).toLocaleString())],
+    ['CFADS ($\'000)', idx.map(i=>'$'+Math.round(y(i).cfads||0).toLocaleString())],
+    ['DSCR', idx.map(i=>y(i).dscr!=null?y(i).dscr.toFixed(2)+'x':'n/a')]
+  ];
+  body.innerHTML = r.map((x,j)=>`<tr class="${j===3||j===5?'sub-total':j===6?'total':''}"><td>${x[0]}</td>${x[1].map(v=>`<td class="val">${v}</td>`).join('')}</tr>`).join('');
+}
+
+function buildChart(rows) {
+  const c = document.getElementById('cf-chart');
+  if (!c) return;
+  c.innerHTML = '';
+  const vals = rows.map(r=>r.cfads);
+  const max = Math.max(...vals.map(v=>Math.abs(v)),1);
+  vals.forEach((v,i)=>{
+    const bar=document.createElement('div');
+    bar.className='chart-bar';
+    bar.style.height=`${Math.max((Math.abs(v)/max)*160,2)}px`;
+    bar.style.background = v>=0 ? '#1565C7' : '#C62828';
+    bar.style.opacity = 0.45 + (i/rows.length)*0.5;
+    if(i%5===0 || i===rows.length-1){ const l=document.createElement('div'); l.className='chart-bar-label'; l.textContent='Y'+(i+1); bar.appendChild(l); }
+    c.appendChild(bar);
   });
 }
 
 function buildPortfolioSummary() {
   const body = document.getElementById('portfolio-summary-body');
-  if (!body || !latestPortfolioResult) return;
-  body.innerHTML = latestPortfolioResult.summaryByAsset.map((row) => {
-    const assetRef = portfolio.assets.find(a=>a.id===row.id);
-    const capex = (assetRef?.capex.lines || []).reduce((s,l)=>s + (Number(l.amount)||0),0);
-    const ppaTenor = assetRef?.revenue?.ppaEndYear ?? '—';
-    const mwdc = assetRef?.technical?.mwdc ?? '—';
-    const irr = row.metrics.irr || 0;
+  if (!body) return;
+  let blendedCapex = 0, blendedNpv = 0, blendedIrrWeighted = 0, totalWeight = 0;
+  const rows = Object.entries(engine.assets).map(([k,a])=>{
+    const r = engine.calcAsset(a);
+    const i = a.inputs;
+    const capex = (i.totalUnleveredCapex||0) + (i.financingIDC||0);
+    blendedCapex += capex;
+    blendedNpv += r.metrics.npv || 0;
+    blendedIrrWeighted += (r.metrics.irr || 0) * capex;
+    totalWeight += capex;
+    const irr = r.metrics.irr || 0;
     let badge = '<span class="badge badge-red">Red</span>';
     if (irr > TARGET_IRR) badge = '<span class="badge badge-green">Green</span>';
-    else if (irr >= (TARGET_IRR - 0.02)) badge = '<span class="badge badge-amber">Amber</span>';
-    return `<tr>
-      <td>${row.name}</td>
-      <td class="num">${mwdc}</td>
-      <td class="num">${fmtPct(irr)}</td>
-      <td class="num">$${Math.round(row.metrics.npv || 0).toLocaleString()}</td>
-      <td class="num">${row.metrics.minDscr ? row.metrics.minDscr.toFixed(2)+'x' : '—'}</td>
-      <td class="num">$${Math.round(capex).toLocaleString()}</td>
-      <td class="num">${ppaTenor}</td>
-      <td>${badge}</td>
-    </tr>`;
-  }).join('');
-
-  setTxt('ps-irr', fmtPct(latestPortfolioResult.blended.irr || 0));
-  setTxt('ps-npv', '$' + Math.round(latestPortfolioResult.blended.npv || 0).toLocaleString());
-  setTxt('ps-capex', '$' + Math.round(latestPortfolioResult.blended.totalUnleveredCapex || 0).toLocaleString());
+    else if (irr >= TARGET_IRR - 0.02) badge = '<span class="badge badge-amber">Amber</span>';
+    return `<tr><td>${a.name}</td><td class="num">${i.mwdc||i.mwac||0}</td><td class="num">${fmtPct(irr)}</td><td class="num">$${Math.round(r.metrics.npv||0).toLocaleString()}</td><td class="num">${fmtX(r.metrics.minDscr)}</td><td class="num">$${Math.round(capex).toLocaleString()}</td><td class="num">${i.ppaTenor||0}</td><td>${badge}</td></tr>`;
+  });
+  body.innerHTML = rows.join('');
+  setTxt('ps-irr', fmtPct(totalWeight ? blendedIrrWeighted/totalWeight : 0));
+  setTxt('ps-npv', '$'+Math.round(blendedNpv).toLocaleString());
+  setTxt('ps-capex', '$'+Math.round(blendedCapex).toLocaleString());
 }
 
-function refreshDealCard() {
-  setTxt('deal-card-name', activeAsset.name);
-  setTxt('deal-card-meta', `${activeAsset.technical.mwdc} MWdc · ${activeAsset.region}`);
+function recalc() {
+  syncAssetFromInputs();
+  latestResult = engine.calcAsset(activeAsset);
+  const m = latestResult.metrics;
+  const rows = latestResult.yearly;
+  const i = activeAsset.inputs;
+  setTxt('m-irr', fmtPct(m.irr));
+  setTxt('m-npv', '$'+Math.round(m.npv||0).toLocaleString());
+  setTxt('m-dscr', fmtX(m.minDscr));
+  setTxt('m-payback', m.paybackYear ? m.paybackYear+' yrs' : '—');
+  setTxt('r-unlev-pre', fmtPct(m.irr));
+  setTxt('r-unlev-post', fmtPct((m.irr||0)*0.88));
+  setTxt('r-lev-pre', fmtPct(m.irr));
+  setTxt('r-lev-post', fmtPct((m.irr||0)*0.92));
+  setTxt('r-moic', m.moic ? m.moic.toFixed(2)+'x' : '—');
+  const revTotal = rows.reduce((s,r)=>s+(r.revenue||0),0);
+  const ebitdaTotal = rows.reduce((s,r)=>s+(r.ebitda||0),0);
+  setTxt('r-ebitda', revTotal ? ((ebitdaTotal/revTotal)*100).toFixed(1)+'%' : '—');
+  setTxt('ls-ppa', '$'+(i.ppaPriceYr1||0).toFixed(2)+'/MWh');
+  setTxt('ls-merch', i.revenueMode==='toll' ? '$'+(i.tollPriceKwMonthYr1||0).toFixed(2)+'/kW-mo' : '$'+(i.merchantPriceYr1||0).toFixed(2)+'/MWh');
+  setTxt('ls-irr', fmtPct(m.irr));
+  setTxt('ls-dscr', fmtX(m.minDscr));
+  setTxt('ls-npv', '$'+Math.round(m.npv||0).toLocaleString()+'K');
+  setTxt('memo-irr', fmtPct(m.irr));
+  const capexTotal = (i.totalUnleveredCapex||0) + (i.financingIDC||0);
+  setTxt('su-loan', Math.round(i.loanAmount||0).toLocaleString());
+  setTxt('su-itc', Math.round(latestResult.itcProceeds||0).toLocaleString());
+  setTxt('su-equity', Math.round(latestResult.sponsorEquity||0).toLocaleString());
+  setTxt('su-total', Math.round(capexTotal).toLocaleString());
+  setTxt('a-capex-total', Math.round(i.totalUnleveredCapex||0).toLocaleString());
+  setTxt('a-capex-wdc', i.mwdc ? '$'+((i.totalUnleveredCapex||0)/(i.mwdc*1000)).toFixed(3) : '—');
+  buildRevTable(rows); buildOpexTable(rows); buildDebtTable(rows); buildChart(rows); buildPortfolioSummary(); refreshDealCard();
+  const activeScreen = SCREENS.find(s=>document.getElementById('s-'+s).classList.contains('active')) || 'upload';
+  const idx = SCREENS.indexOf(activeScreen);
+  setTxt('top-title', `${TITLES[idx][0]} — ${activeAsset.name}`);
 }
 
 function initAssetSwitcher() {
-  const select = document.getElementById('asset-switcher');
-  if (!select) return;
-  select.innerHTML = portfolio.assets.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
-  select.value = activeAsset.id;
+  const s = document.getElementById('asset-switcher');
+  s.innerHTML = Object.entries(engine.assets).map(([k,a])=>`<option value="${k}">${a.name}</option>`).join('');
+  s.value = activeAssetKey;
 }
 
-function switchAsset(assetId) {
-  const found = portfolio.assets.find(a => a.id === assetId);
-  if (!found) return;
-  activeAsset = found;
-  engine.activeAsset = found.id;
+function switchAsset(key) {
+  if (!engine.assets[key]) return;
+  activeAssetKey = key;
+  engine.activeAsset = key;
+  activeAsset = engine.assets[key];
   hydrateInputsFromAsset(activeAsset);
-  refreshDealCard();
   recalc();
 }
 
-// ── NAVIGATION ────────────────────────────────────────────────────────────────
-function go(id, btn) {
+function go(id) {
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById('s-'+id).classList.add('active');
   document.querySelectorAll('.nav-item').forEach((el,i)=>{
@@ -1035,55 +961,22 @@ function go(id, btn) {
     else if(i===idx) el.classList.add('active');
   });
   const idx = SCREENS.indexOf(id);
-  document.getElementById('top-title').textContent = TITLES[idx][0];
-  document.getElementById('top-sub').textContent = TITLES[idx][1];
-  document.getElementById('main-cta').textContent = CTA[idx];
-  if (id==='model') recalc();
+  setTxt('top-title', `${TITLES[idx][0]} — ${activeAsset.name}`);
+  setTxt('top-sub', TITLES[idx][1]);
+  setTxt('main-cta', CTA[idx]);
+  recalc();
 }
 
 function handleCTA() {
   const cur = SCREENS.findIndex(s=>document.getElementById('s-'+s).classList.contains('active'));
-  if (cur < SCREENS.length-1) go(SCREENS[cur+1], document.querySelectorAll('.nav-item')[cur+1]);
+  if (cur < SCREENS.length-1) go(SCREENS[cur+1]);
 }
 
-// ── SCENARIO ──────────────────────────────────────────────────────────────────
-function setScen(s, el) {
-  curScen = s;
+function setScen(_s, el) {
   document.querySelectorAll('.scen-tab').forEach(t=>t.classList.remove('active'));
-  el.classList.add('active');
+  if (el) el.classList.add('active');
   recalc();
 }
-
-// ── ANALYST CHAT ──────────────────────────────────────────────────────────────
-const CHAT_RESPONSES = [
-  { trigger: /ppa.*(escal|2%|2 per)/i,
-    reply: "Done. PPA escalation updated to 2.0%/yr starting Year 3.",
-    changes: [{field:'PPA Escalation (Yr 3+)', from:'0.0%/yr', to:'2.0%/yr'}],
-    recalc: () => { activeAsset.revenue.ppaEscalation = 0.02; recalc(); } },
-  { trigger: /bear|merchant.*(down|-15%|drop)/i,
-    reply: "Bear case applied: merchant price reduced 15%. IRR sensitivity: base 12.9% → bear 10.6%.",
-    changes: [{field:'Scenario', from:'Base', to:'Bear (-15% merchant)'}],
-    recalc: () => { setScen('bear', document.querySelectorAll('.scen-tab')[2]); } },
-  { trigger: /dscr|interest.*(9|9\.5|rises)/i,
-    reply: "Modeled interest rate increase to 9.5% (SOFR+3.50%). DSCR drops to 1.41x in Year 1. Still above 1.25x covenant — deal remains bankable.",
-    changes: [{field:'Interest Rate', from:'SOFR+2.50%', to:'SOFR+3.50%'}],
-    recalc: () => {} },
-  { trigger: /o.?m.*(20%|increase)|opex.*20/i,
-    reply: "O&M costs increased 20% across all NC assets. EBITDA margin compresses ~2.1pp. IRR impact: -0.8pp.",
-    changes: [{field:'O&M (all assets)', from:'$479K/yr base', to:'$575K/yr base (+20%)'}],
-    recalc: () => { if (activeAsset.opex.lines[0]) activeAsset.opex.lines[0].year1 *= 1.2; recalc(); } },
-  { trigger: /contingency|3\.5%|5%/i,
-    reply: "Contingency updated. Total CapEx recalculated. IRR impact: minimal at this level.",
-    changes: [{field:'Contingency', from:'$3,130K (3.5%)', to:'$4,472K (5.0%)'}],
-    recalc: () => {} },
-  { trigger: /debt|loan|27\.5|sizing/i,
-    reply: "Term loan analysis: at $27.5M and SOFR+2.50%, debt covers 24.9% of levered CapEx. DSCR floors at 1.62x. Could potentially upsize to $32M (DSCR ~1.45x still above covenant).",
-    changes: [], recalc: () => {} },
-  { trigger: /merchant|post-ppa|70/i,
-    reply: "Merchant price updated to $70/MWh post-PPA. Levered IRR improves from 12.9% to 14.1%. NPV increases by approximately $4.2M.",
-    changes: [{field:'Merchant Price', from:'$65/MWh', to:'$70/MWh'}],
-    recalc: () => { activeAsset.revenue.merchantPricePerMWh = 70; recalc(); } },
-];
 
 function sendChat() {
   const input = document.getElementById('chat-in');
@@ -1091,50 +984,20 @@ function sendChat() {
   if (!text) return;
   addMsg(text, 'user');
   input.value = '';
-  setTimeout(() => {
-    const match = CHAT_RESPONSES.find(r => r.trigger.test(text));
-    if (match) {
-      addMsg(match.reply, 'ai', match.changes);
-      match.recalc();
-      match.changes.forEach(ch => addAuditEntry(ch.field, ch.from, ch.to, 'Chat'));
-    } else {
-      addMsg("I've reviewed your request. Let me analyze the model impact. For this specific adjustment, I'd recommend running a sensitivity analysis — try one of the suggestions above or be more specific about the assumption you want to change.", 'ai', []);
-    }
-  }, 600);
+  setTimeout(() => addMsg('Model is now wired to the selected asset in SolarLedger. Update assumptions in the input tables to rerun real calculations.', 'ai'), 500);
 }
-
-function sendSugg(el) {
-  document.getElementById('chat-in').value = el.textContent;
-  sendChat();
-}
-
-function addMsg(text, role, changes=[]) {
+function sendSugg(el){ document.getElementById('chat-in').value = el.textContent; sendChat(); }
+function addMsg(text, role){
   const msgs = document.getElementById('chat-msgs');
   const div = document.createElement('div');
   div.className = 'msg ' + role;
-  const initials = role==='user'?'AN':'SL';
-  let changeHTML = '';
-  if (changes.length) {
-    changeHTML = changes.map(c=>`<div class="msg-change"><span class="change-from">${c.from}</span><span class="change-arrow">→</span><span class="change-to">${c.to}</span></div>`).join('');
-  }
-  div.innerHTML = `<div class="msg-avatar ${role}">${initials}</div><div class="msg-bubble">${text}${changeHTML}</div>`;
-  msgs.appendChild(div);
-  msgs.scrollTop = msgs.scrollHeight;
+  div.innerHTML = `<div class="msg-avatar ${role}">${role==='user'?'AN':'SL'}</div><div class="msg-bubble">${text}</div>`;
+  msgs.appendChild(div); msgs.scrollTop = msgs.scrollHeight;
 }
+function addAuditEntry(){ return; }
 
-function addAuditEntry(field, from, to, by) {
-  const trail = document.getElementById('audit-trail');
-  const now = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
-  const div = document.createElement('div');
-  div.className = 'audit-item';
-  div.innerHTML = `<span class="audit-ts">${by} · ${now}</span><div><div><span class="audit-field">${field}</span> changed: <span class="audit-from">${from}</span> → <span class="audit-to">${to}</span></div><div class="audit-by">Via: analyst chat</div></div>`;
-  trail.insertBefore(div, trail.firstChild);
-}
-
-// ── INIT ──────────────────────────────────────────────────────────────────────
 initAssetSwitcher();
 hydrateInputsFromAsset(activeAsset);
-refreshDealCard();
 recalc();
 </script>
 </body>

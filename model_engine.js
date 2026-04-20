@@ -68,13 +68,18 @@
       var ppaPrice = null;
       var merchantPrice = null;
       var revenue = 0;
-      if (year <= toNumber(inputs.ppaTenor, 0)) {
-        ppaPrice = toNumber(inputs.ppaPriceYr1, 0) * Math.pow(1 + toNumber(inputs.ppaEscalation, 0), year - 1);
-        revenue = netMWh * ppaPrice / 1000;
+      if (inputs.revenueMode === "toll") {
+        var tollBase = (toNumber(inputs.mwac, 0) * toNumber(inputs.tollPriceKwMonthYr1, 0) * 12000) / 1000;
+        revenue = tollBase * Math.pow(1 + toNumber(inputs.tollEscalation, 0), year - 1);
       } else {
-        var yearsPostPPA = year - toNumber(inputs.ppaTenor, 0) - 1;
-        merchantPrice = toNumber(inputs.merchantPriceYr1, 0) * Math.pow(1 + toNumber(inputs.merchantEscalation, 0), yearsPostPPA);
-        revenue = netMWh * merchantPrice / 1000;
+        if (year <= toNumber(inputs.ppaTenor, 0)) {
+          ppaPrice = toNumber(inputs.ppaPriceYr1, 0) * Math.pow(1 + toNumber(inputs.ppaEscalation, 0), year - 1);
+          revenue = netMWh * ppaPrice / 1000;
+        } else {
+          var yearsPostPPA = year - toNumber(inputs.ppaTenor, 0) - 1;
+          merchantPrice = toNumber(inputs.merchantPriceYr1, 0) * Math.pow(1 + toNumber(inputs.merchantEscalation, 0), yearsPostPPA);
+          revenue = netMWh * merchantPrice / 1000;
+        }
       }
 
       // OPEX
@@ -225,6 +230,9 @@
   var assets = {
     yarotek: {
       name: "Yarotek Portfolio",
+      type: "Utility-Scale Development",
+      market: "Duke NC",
+      badgeColor: "blue",
       inputs: {
         mwdc: 82,
         yieldKwhKwp: 1710,
@@ -281,6 +289,182 @@
         itcRate: 0.40,
         fmv: 142545,
         preferredEquity: 17132,
+        discountRate: 0.08
+      }
+    },
+    dgbess: {
+      name: "DG BESS NY",
+      type: "Battery Storage",
+      market: "NYISO",
+      badgeColor: "teal",
+      inputs: {
+        mwdc: 0,
+        mwac: 5,
+        mwh: 20,
+        yieldKwhKwp: 0,
+        dcAcRatio: 1,
+        availabilityFactor: 1,
+        annualDegradation: 0,
+        curtailment: 0,
+        assetLife: 30,
+        codYear: 2029,
+        revenueMode: "toll",
+        tollPriceKwMonthYr1: 12,
+        tollEscalation: 0.015,
+        ppaPriceYr1: 0,
+        ppaEscalation: 0,
+        ppaTenor: 15,
+        merchantPriceYr1: 0,
+        merchantEscalation: 0,
+        opex: {
+          pvo: 20,
+          utilityOM: 0,
+          parasiticLoad: 0,
+          uncoveredOM: 12,
+          telecom: 6,
+          insurance: 30,
+          assetMgmt: 22,
+          auditTax: 4,
+          lcFees: 0,
+          otherOpex: 8,
+          operatingLease: 0
+        },
+        opexEscalation: {
+          pvo: 0.02,
+          utilityOM: 0.02,
+          parasiticLoad: 0.02,
+          uncoveredOM: 0.02,
+          telecom: 0.02,
+          insurance: 0.03,
+          assetMgmt: 0.02,
+          auditTax: 0.02,
+          lcFees: 0.02,
+          otherOpex: 0.02,
+          operatingLease: 0.02
+        },
+        inverterReserve: { startYear: 1, endYear: 0, annualCost: 0 },
+        totalUnleveredCapex: 11148,
+        financingIDC: 0,
+        loanAmount: 4470,
+        interestRate: 0.105,
+        loanTenor: 7,
+        itcRate: 0.40,
+        fmv: 13500,
+        preferredEquity: 1885,
+        discountRate: 0.08
+      }
+    },
+    foley: {
+      name: "Foley (Alabama)",
+      type: "Operating Asset Acquisition",
+      market: "Alabama",
+      badgeColor: "amber",
+      inputs: {
+        mwdc: 106.1,
+        yieldKwhKwp: 1906,
+        dcAcRatio: 1.3,
+        availabilityFactor: 0.98,
+        annualDegradation: 0.0045,
+        curtailment: 0,
+        assetLife: 40,
+        codYear: 2026,
+        ppaPriceYr1: 50,
+        ppaEscalation: 0,
+        ppaTenor: 17,
+        merchantPriceYr1: 45,
+        merchantEscalation: 0.02,
+        opex: {
+          pvo: 583,
+          utilityOM: 0,
+          parasiticLoad: 77,
+          uncoveredOM: 85,
+          telecom: 44,
+          insurance: 415,
+          assetMgmt: 85,
+          auditTax: 24,
+          lcFees: 96,
+          otherOpex: 50,
+          operatingLease: 0
+        },
+        opexEscalation: {
+          pvo: 0.02,
+          utilityOM: 0.02,
+          parasiticLoad: 0.02,
+          uncoveredOM: 0.02,
+          telecom: 0.02,
+          insurance: 0.03,
+          assetMgmt: 0.02,
+          auditTax: 0.02,
+          lcFees: 0.02,
+          otherOpex: 0.02,
+          operatingLease: 0.02
+        },
+        inverterReserve: { startYear: 1, endYear: 0, annualCost: 0 },
+        totalUnleveredCapex: 160734,
+        financingIDC: 7036,
+        loanAmount: 85000,
+        interestRate: 0.075,
+        loanTenor: 20,
+        itcRate: 0,
+        fmv: 206690,
+        preferredEquity: 0,
+        discountRate: 0.08
+      }
+    },
+    bsu: {
+      name: "BSU Operating Portfolio",
+      type: "C&I Operating Portfolio",
+      market: "Northeast US",
+      badgeColor: "green",
+      inputs: {
+        mwdc: 14,
+        yieldKwhKwp: 1450,
+        dcAcRatio: 1.15,
+        availabilityFactor: 0.99,
+        annualDegradation: 0.005,
+        curtailment: 0,
+        assetLife: 30,
+        codYear: 2023,
+        ppaPriceYr1: 172,
+        ppaEscalation: 0.04,
+        ppaTenor: 25,
+        merchantPriceYr1: 120,
+        merchantEscalation: 0.02,
+        opex: {
+          pvo: 81,
+          utilityOM: 0,
+          parasiticLoad: 0,
+          uncoveredOM: 11,
+          telecom: 8,
+          insurance: 42,
+          assetMgmt: 34,
+          auditTax: 5,
+          lcFees: 0,
+          otherOpex: 12,
+          operatingLease: 48
+        },
+        opexEscalation: {
+          pvo: 0.02,
+          utilityOM: 0.02,
+          parasiticLoad: 0.02,
+          uncoveredOM: 0.02,
+          telecom: 0.02,
+          insurance: 0.05,
+          assetMgmt: 0.02,
+          auditTax: 0.02,
+          lcFees: 0.02,
+          otherOpex: 0.02,
+          operatingLease: 0.04
+        },
+        inverterReserve: { startYear: 1, endYear: 0, annualCost: 0 },
+        totalUnleveredCapex: 28000,
+        financingIDC: 0,
+        loanAmount: 12000,
+        interestRate: 0.065,
+        loanTenor: 15,
+        itcRate: 0.26,
+        fmv: 35000,
+        preferredEquity: 0,
         discountRate: 0.08
       }
     }
