@@ -1499,23 +1499,14 @@ recalc();
   }
 
   function calcIRR(cashFlows) {
-    var guess = 0.15;
-    for (var iter = 0; iter < 100; iter += 1) {
-      var npvVal = npvCalc(guess, cashFlows);
-      var npvDerivative = 0;
-      for (var i = 1; i < cashFlows.length; i += 1) {
-        npvDerivative += -i * cashFlows[i] / Math.pow(1 + guess, i + 1);
-      }
-      if (Math.abs(npvDerivative) < 1e-12) break;
-      var newGuess = guess - npvVal / npvDerivative;
-      if (!Number.isFinite(newGuess) || newGuess <= -0.9999) break;
-      if (Math.abs(newGuess - guess) < 0.0000001) {
-        guess = newGuess;
-        break;
-      }
-      guess = newGuess;
+    var low = -0.9999, high = 5.0;
+    for (var b = 0; b < 300; b++) {
+      var mid = (low + high) / 2;
+      var v = npvCalc(mid, cashFlows);
+      if (Math.abs(v) < 0.001) return mid;
+      if (v > 0) low = mid; else high = mid;
     }
-    return guess;
+    return (low + high) / 2;
   }
 
   function calcAsset(asset) {
