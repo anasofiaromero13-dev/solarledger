@@ -1,456 +1,296 @@
 (function () {
   "use strict";
 
-  var MODEL_YEARS = 35;
-  var DEFAULT_DISCOUNT_RATE = 0.08;
-
   function toNumber(value, fallback) {
     var n = Number(value);
     return Number.isFinite(n) ? n : fallback;
   }
 
-  function round(value, decimals) {
-    var p = Math.pow(10, decimals || 0);
-    return Math.round(value * p) / p;
-  }
-
-  function sum(values) {
+  function npvCalc(rate, cashFlows) {
     var total = 0;
-    for (var i = 0; i < values.length; i += 1) total += values[i];
-    return total;
-  }
-
-  function npv(rate, cashflows) {
-    var total = 0;
-    for (var t = 0; t < cashflows.length; t += 1) {
-      total += cashflows[t] / Math.pow(1 + rate, t);
+    for (var i = 0; i < cashFlows.length; i += 1) {
+      total += cashFlows[i] / Math.pow(1 + rate, i);
     }
     return total;
   }
 
-  function irrNewtonRaphson(cashflows, guess) {
-    var rate = toNumber(guess, 0.1);
-    var maxIter = 200;
-    var tolerance = 1e-7;
-
-    for (var iter = 0; iter < maxIter; iter += 1) {
-      var f = 0;
-      var df = 0;
-      for (var t = 0; t < cashflows.length; t += 1) {
-        var denom = Math.pow(1 + rate, t);
-        f += cashflows[t] / denom;
-        if (t > 0) {
-          df -= (t * cashflows[t]) / (denom * (1 + rate));
-        }
+  function calcIRR(cashFlows) {
+    var guess = 0.10;
+    for (var iter = 0; iter < 100; iter += 1) {
+      var npvVal = npvCalc(guess, cashFlows);
+      var npvDerivative = 0;
+      for (var i = 1; i < cashFlows.length; i += 1) {
+        npvDerivative += -i * cashFlows[i] / Math.pow(1 + guess, i + 1);
       }
-
-      if (Math.abs(df) < 1e-12) break;
-      var nextRate = rate - f / df;
-      if (!Number.isFinite(nextRate) || nextRate <= -0.9999 || nextRate > 10) break;
-      if (Math.abs(nextRate - rate) < tolerance) return nextRate;
-      rate = nextRate;
+      if (Math.abs(npvDerivative) < 1e-12) break;
+      var newGuess = guess - npvVal / npvDerivative;
+      if (!Number.isFinite(newGuess) || newGuess <= -0.9999) break;
+      if (Math.abs(newGuess - guess) < 0.0000001) {
+        guess = newGuess;
+        break;
+      }
+      guess = newGuess;
     }
-
-    return null;
-  }
-
-  function annuityPayment(principal, annualRate, tenorYears) {
-    if (principal <= 0 || tenorYears <= 0) return 0;
-    if (annualRate === 0) return principal / tenorYears;
-    var r = annualRate;
-    return (principal * r) / (1 - Math.pow(1 + r, -tenorYears));
-  }
-
-  function normalizeOpexLine(line) {
-    return {
-      name: line.name || "Unnamed OPEX",
-      year1: toNumber(line.year1, 0),
-      escalation: toNumber(line.escalation, 0)
-    };
+    return guess;
   }
 
   function calcAsset(asset) {
-    var technical = asset.technical || {};
-    var revenue = asset.revenue || {};
-    var opex = asset.opex || {};
-    var capex = asset.capex || {};
-    var debt = asset.debt || {};
-    var itc = asset.itc || {};
+    var inputs = asset.inputs || asset;
+    var assetLife = Math.max(1, Math.floor(toNumber(inputs.assetLife, 35)));
+    var loanTenor = Math.max(0, Math.floor(toNumber(inputs.loanTenor, 0)));
 
-    var mwdc = toNumber(technical.mwdc, 0);
-    var yieldKwhPerKwp = toNumber(technical.yieldKwhPerKwp, 0);
-    var availability = toNumber(technical.availability, 1);
-    var degradation = toNumber(technical.degradation, 0);
-    var assetLifeYears = Math.max(1, Math.floor(toNumber(technical.assetLifeYears, MODEL_YEARS)));
+    var yearly = [];
+    var debtOutstanding = [];
+    var leveredCashFlows = [];
+    var cfadsForNpv = [];
 
-    var ppaPrice = toNumber(revenue.ppaPricePerMWh, 0);
-    var ppaEsc = toNumber(revenue.ppaEscalation, 0);
-    var ppaEndYear = Math.max(0, Math.floor(toNumber(revenue.ppaEndYear, 0)));
-    var merchantPrice = toNumber(revenue.merchantPricePerMWh, 0);
-    var merchantEsc = toNumber(revenue.merchantEscalation, 0);
-    var curtailment = toNumber(revenue.curtailment, 0);
+    var itcProceeds = toNumber(inputs.fmv, 0) * toNumber(inputs.itcRate, 0);
+    var sponsorEquity =
+      toNumber(inputs.totalUnleveredCapex, 0) +
+      toNumber(inputs.financingIDC, 0) -
+      toNumber(inputs.loanAmount, 0) -
+      itcProceeds -
+      toNumber(inputs.preferredEquity, 0);
 
-    var opexLines = Array.isArray(opex.lines) ? opex.lines.map(normalizeOpexLine) : [];
-    var capexLines = Array.isArray(capex.lines) ? capex.lines : [];
-    var unleveredCapex = sum(capexLines.map(function (l) { return toNumber(l.amount, 0); }));
+    leveredCashFlows.push(-sponsorEquity);
 
-    var loanSize = toNumber(debt.loanSize, 0);
-    var interestRate = toNumber(debt.interestRate, 0);
-    var tenorYears = Math.max(0, Math.floor(toNumber(debt.tenorYears, 0)));
-    var dscrCovenant = toNumber(debt.dscrCovenant, 1.25);
+    for (var year = 1; year <= assetLife; year += 1) {
+      // GENERATION
+      var degradationFactor = Math.pow(1 - toNumber(inputs.annualDegradation, 0), year - 1);
+      var grossMWh =
+        toNumber(inputs.mwdc, 0) *
+        toNumber(inputs.yieldKwhKwp, 0) *
+        toNumber(inputs.availabilityFactor, 0) *
+        degradationFactor;
+      var netMWh = grossMWh * (1 - toNumber(inputs.curtailment, 0));
 
-    var itcBaseRate = toNumber(itc.baseRate, 0);
-    var itcAdders = toNumber(itc.adders, 0);
-    var itcRate = itcBaseRate + itcAdders;
-    var fmv = toNumber(itc.fmv, unleveredCapex);
-    var fmvStepUp = toNumber(itc.fmvStepUp, 1);
-    var steppedBasis = fmv * fmvStepUp;
-    var itcAmount = steppedBasis * itcRate;
+      // REVENUE
+      var ppaPrice = null;
+      var merchantPrice = null;
+      var revenue = 0;
+      if (year <= toNumber(inputs.ppaTenor, 0)) {
+        ppaPrice = toNumber(inputs.ppaPriceYr1, 0) * Math.pow(1 + toNumber(inputs.ppaEscalation, 0), year - 1);
+        revenue = netMWh * ppaPrice / 1000;
+      } else {
+        var yearsPostPPA = year - toNumber(inputs.ppaTenor, 0) - 1;
+        merchantPrice = toNumber(inputs.merchantPriceYr1, 0) * Math.pow(1 + toNumber(inputs.merchantEscalation, 0), yearsPostPPA);
+        revenue = netMWh * merchantPrice / 1000;
+      }
 
-    var discountRate = toNumber(asset.discountRate, DEFAULT_DISCOUNT_RATE);
-
-    var debtServiceFixed = annuityPayment(loanSize, interestRate, tenorYears);
-    var years = [];
-    var debtBalance = loanSize;
-
-    var equityAtCOD = unleveredCapex - loanSize - itcAmount;
-    var equityCashflows = [-equityAtCOD];
-
-    for (var y = 1; y <= MODEL_YEARS; y += 1) {
-      var active = y <= assetLifeYears;
-      var degradationFactor = active ? Math.pow(1 - degradation, y - 1) : 0;
-      var netMWh = active
-        ? mwdc * 1000 * yieldKwhPerKwp * availability * degradationFactor * (1 - curtailment) / 1000
-        : 0;
-
-      var isPpa = y <= ppaEndYear;
-      var ppaPriceYear = ppaPrice * Math.pow(1 + ppaEsc, y - 1);
-      var merchantPriceYear = merchantPrice * Math.pow(1 + merchantEsc, Math.max(0, y - ppaEndYear - 1));
-      var realizedPrice = isPpa ? ppaPriceYear : merchantPriceYear;
-      var revenueYear = active ? netMWh * realizedPrice : 0;
-
-      var opexYear = 0;
+      // OPEX
+      var opexKeys = [
+        "pvo",
+        "utilityOM",
+        "parasiticLoad",
+        "uncoveredOM",
+        "telecom",
+        "insurance",
+        "assetMgmt",
+        "auditTax",
+        "lcFees",
+        "otherOpex",
+        "operatingLease"
+      ];
       var opexByLine = {};
-      for (var i = 0; i < opexLines.length; i += 1) {
-        var line = opexLines[i];
-        var value = active ? line.year1 * Math.pow(1 + line.escalation, y - 1) : 0;
-        opexByLine[line.name] = value;
-        opexYear += value;
+      var totalOpex = 0;
+
+      for (var i = 0; i < opexKeys.length; i += 1) {
+        var key = opexKeys[i];
+        var yr1Cost = toNumber((inputs.opex || {})[key], 0);
+        var escalationRate = toNumber((inputs.opexEscalation || {})[key], 0);
+        var lineValue = yr1Cost * Math.pow(1 + escalationRate, year - 1);
+        opexByLine[key] = lineValue;
+        totalOpex += lineValue;
       }
 
-      var ebitda = revenueYear - opexYear;
-      var interest = y <= tenorYears ? debtBalance * interestRate : 0;
-      var scheduledDebtService = y <= tenorYears ? debtServiceFixed : 0;
-      var principal = y <= tenorYears ? Math.max(0, scheduledDebtService - interest) : 0;
-      principal = Math.min(principal, debtBalance);
-      var debtService = interest + principal;
-      var endingDebtBalance = Math.max(0, debtBalance - principal);
+      var reserve = inputs.inverterReserve || {};
+      var inverterReserveCost = 0;
+      if (
+        year >= toNumber(reserve.startYear, 0) &&
+        year <= toNumber(reserve.endYear, 0)
+      ) {
+        inverterReserveCost = toNumber(reserve.annualCost, 0);
+      }
+      opexByLine.inverterReserve = inverterReserveCost;
+      totalOpex += inverterReserveCost;
 
-      var cfads = ebitda;
-      var cashAfterDebt = cfads - debtService;
-      var dscr = debtService > 0 ? cfads / debtService : null;
-      var covenantBreached = dscr !== null ? dscr < dscrCovenant : false;
+      // EBITDA
+      var ebitda = revenue - totalOpex;
+      var ebitdaMargin = revenue !== 0 ? ebitda / revenue : null;
 
-      years.push({
-        year: y,
-        operational: active,
-        netGenerationMWh: netMWh,
-        realizedPricePerMWh: realizedPrice,
-        revenue: revenueYear,
+      // DEBT SCHEDULE
+      var beginningBalance = year === 1
+        ? toNumber(inputs.loanAmount, 0)
+        : debtOutstanding[year - 2] - yearly[year - 2].amortization;
+      if (beginningBalance < 0) beginningBalance = 0;
+
+      var amortization = year <= loanTenor
+        ? toNumber(inputs.loanAmount, 0) / loanTenor
+        : 0;
+      amortization = Math.min(amortization, beginningBalance);
+
+      var interest = beginningBalance * toNumber(inputs.interestRate, 0);
+      var totalDebtService = amortization + interest;
+      var cfads = ebitda - totalDebtService;
+      var dscr = totalDebtService > 0 ? ebitda / totalDebtService : null;
+
+      debtOutstanding.push(beginningBalance);
+      cfadsForNpv.push(cfads);
+      leveredCashFlows.push(cfads);
+
+      yearly.push({
+        year: year,
+        degradationFactor: degradationFactor,
+        grossMWh: grossMWh,
+        netMWh: netMWh,
+        ppaPrice: ppaPrice,
+        merchantPrice: merchantPrice,
+        revenue: revenue,
         opexByLine: opexByLine,
-        totalOpex: opexYear,
+        totalOpex: totalOpex,
         ebitda: ebitda,
-        debtBeginningBalance: debtBalance,
-        interestExpense: interest,
-        principalRepayment: principal,
-        debtService: debtService,
-        debtEndingBalance: endingDebtBalance,
+        ebitdaMargin: ebitdaMargin,
+        beginningBalance: beginningBalance,
+        amortization: amortization,
+        interest: interest,
+        totalDebtService: totalDebtService,
         cfads: cfads,
-        cashAfterDebtService: cashAfterDebt,
-        dscr: dscr,
-        dscrCovenantBreached: covenantBreached
+        dscr: dscr
       });
-
-      equityCashflows.push(cashAfterDebt);
-      debtBalance = endingDebtBalance;
     }
 
-    var realIrr = irrNewtonRaphson(equityCashflows, 0.12);
-    var equityNpv = npv(discountRate, equityCashflows);
-    var minDscr = null;
-    for (var j = 0; j < years.length; j += 1) {
-      if (years[j].dscr !== null) {
-        minDscr = minDscr === null ? years[j].dscr : Math.min(minDscr, years[j].dscr);
+    // IRR
+    var irr = calcIRR(leveredCashFlows);
+
+    // NPV
+    var discountRate = toNumber(inputs.discountRate, 0);
+    var npv = 0;
+    for (var n = 1; n <= assetLife; n += 1) {
+      npv += cfadsForNpv[n - 1] / Math.pow(1 + discountRate, n);
+    }
+
+    // LLCR at year 1
+    var npvCfadsLoanLife = 0;
+    var loanLifeYears = Math.min(loanTenor, assetLife);
+    for (var l = 1; l <= loanLifeYears; l += 1) {
+      npvCfadsLoanLife += cfadsForNpv[l - 1] / Math.pow(1 + discountRate, l);
+    }
+    var outstandingDebt = toNumber(inputs.loanAmount, 0);
+    var llcr = outstandingDebt > 0 ? npvCfadsLoanLife / outstandingDebt : null;
+
+    // MOIC
+    var totalEquityReturned = 0;
+    for (var c = 1; c < leveredCashFlows.length; c += 1) {
+      if (leveredCashFlows[c] > 0) totalEquityReturned += leveredCashFlows[c];
+    }
+    var moic = sponsorEquity !== 0 ? totalEquityReturned / sponsorEquity : null;
+
+    // PAYBACK
+    var cumulativeCfads = 0;
+    var paybackYear = null;
+    for (var p = 0; p < cfadsForNpv.length; p += 1) {
+      cumulativeCfads += cfadsForNpv[p];
+      if (paybackYear === null && cumulativeCfads > sponsorEquity) {
+        paybackYear = p + 1;
       }
     }
 
-    var loanLifeCfads = years.slice(0, tenorYears).map(function (r) { return r.cfads; });
-    var llcrNumerator = 0;
-    for (var k = 0; k < loanLifeCfads.length; k += 1) {
-      llcrNumerator += loanLifeCfads[k] / Math.pow(1 + discountRate, k + 1);
-    }
-    var llcr = loanSize > 0 ? llcrNumerator / loanSize : null;
-
-    var totalDistributions = sum(equityCashflows.slice(1));
-    var moic = equityAtCOD !== 0 ? totalDistributions / Math.abs(equityAtCOD) : null;
-
-    var cumulative = equityCashflows[0];
-    var paybackYear = null;
-    for (var p = 1; p < equityCashflows.length; p += 1) {
-      cumulative += equityCashflows[p];
-      if (paybackYear === null && cumulative >= 0) paybackYear = p;
+    // MIN DSCR
+    var minDscr = null;
+    for (var d = 0; d < yearly.length; d += 1) {
+      var y = yearly[d];
+      if (y.beginningBalance > 0 && y.dscr !== null) {
+        minDscr = minDscr === null ? y.dscr : Math.min(minDscr, y.dscr);
+      }
     }
 
     return {
-      assetId: asset.id,
-      assetName: asset.name,
-      assumptions: asset,
-      years: years,
-      cashflows: {
-        equity: equityCashflows,
-        equityAtCOD: equityAtCOD,
-        itcAmount: itcAmount
-      },
+      name: asset.name || "asset",
+      inputs: inputs,
+      itcProceeds: itcProceeds,
+      sponsorEquity: sponsorEquity,
+      leveredCashFlows: leveredCashFlows,
+      yearly: yearly,
       metrics: {
-        irr: realIrr,
-        npv: equityNpv,
+        irr: irr,
+        npv: npv,
         llcr: llcr,
         moic: moic,
         paybackYear: paybackYear,
-        minDscr: minDscr,
-        totalRevenue: sum(years.map(function (r) { return r.revenue; })),
-        totalOpex: sum(years.map(function (r) { return r.totalOpex; })),
-        totalEbitda: sum(years.map(function (r) { return r.ebitda; }))
+        minDscr: minDscr
       }
     };
   }
 
-  function calcPortfolio(portfolio) {
-    var assets = Array.isArray(portfolio.assets) ? portfolio.assets : [];
-    var discountRate = toNumber(portfolio.discountRate, DEFAULT_DISCOUNT_RATE);
-    var perAsset = [];
+  var assets = {
+    yarotek: {
+      name: "Yarotek Portfolio",
+      inputs: {
+        mwdc: 82,
+        yieldKwhKwp: 1710,
+        dcAcRatio: 1.43,
+        availabilityFactor: 0.985,
+        annualDegradation: 0.004,
+        curtailment: 0.02,
+        assetLife: 35,
+        codYear: 2030,
 
-    var blendedCashflows = [0];
-    var totalCapex = 0;
-    var totalDebt = 0;
-    var totalItc = 0;
+        ppaPriceYr1: 59,
+        ppaEscalation: 0.0,
+        ppaTenor: 5,
+        merchantPriceYr1: 65,
+        merchantEscalation: 0.015,
 
-    for (var i = 0; i < assets.length; i += 1) {
-      var modeled = calcAsset(assets[i]);
-      perAsset.push({
-        id: assets[i].id,
-        name: assets[i].name,
-        region: assets[i].region,
-        metrics: modeled.metrics
-      });
+        opex: {
+          pvo: 479,
+          utilityOM: 68,
+          parasiticLoad: 60,
+          uncoveredOM: 70,
+          telecom: 34,
+          insurance: 321,
+          assetMgmt: 70,
+          auditTax: 19,
+          lcFees: 113,
+          otherOpex: 117,
+          operatingLease: 582
+        },
+        opexEscalation: {
+          pvo: 0.02,
+          utilityOM: 0.0,
+          parasiticLoad: 0.01,
+          uncoveredOM: 0.02,
+          telecom: 0.02,
+          insurance: 0.0,
+          assetMgmt: 0.02,
+          auditTax: 0.02,
+          lcFees: 0.0,
+          otherOpex: 0.0,
+          operatingLease: 0.02
+        },
+        inverterReserve: {
+          startYear: 16,
+          endYear: 20,
+          annualCost: 250
+        },
 
-      totalCapex += sum(assets[i].capex.lines.map(function (l) { return toNumber(l.amount, 0); }));
-      totalDebt += toNumber(assets[i].debt.loanSize, 0);
-      totalItc += modeled.cashflows.itcAmount;
-
-      var eq = modeled.cashflows.equity;
-      for (var y = 0; y < eq.length; y += 1) {
-        blendedCashflows[y] = toNumber(blendedCashflows[y], 0) + eq[y];
+        totalUnleveredCapex: 110432,
+        financingIDC: 6000,
+        loanAmount: 27500,
+        interestRate: 0.085,
+        loanTenor: 20,
+        itcRate: 0.40,
+        fmv: 142545,
+        preferredEquity: 17132,
+        discountRate: 0.08
       }
     }
-
-    var blendedIrr = irrNewtonRaphson(blendedCashflows, 0.1);
-    var blendedNpv = npv(discountRate, blendedCashflows);
-
-    return {
-      portfolioName: portfolio.name,
-      discountRate: discountRate,
-      summaryByAsset: perAsset,
-      blended: {
-        equityCashflows: blendedCashflows,
-        irr: blendedIrr,
-        npv: blendedNpv,
-        totalUnleveredCapex: totalCapex,
-        totalDebt: totalDebt,
-        totalItc: totalItc,
-        totalEquity: totalCapex - totalDebt - totalItc
-      }
-    };
-  }
-
-  function defaultOpexLines(scale) {
-    return [
-      { name: "PV O&M", year1: 479 * scale, escalation: 0.02 },
-      { name: "Utility O&M", year1: 68 * scale, escalation: 0.0 },
-      { name: "Parasitic Load", year1: 60 * scale, escalation: 0.01 },
-      { name: "Uncovered O&M", year1: 70 * scale, escalation: 0.02 },
-      { name: "Telecom", year1: 34 * scale, escalation: 0.02 },
-      { name: "Insurance", year1: 321 * scale, escalation: 0.02 },
-      { name: "Asset Management", year1: 70 * scale, escalation: 0.02 },
-      { name: "Audit & Tax", year1: 19 * scale, escalation: 0.02 },
-      { name: "LC / Financing Fees", year1: 113 * scale, escalation: 0.0 },
-      { name: "Inverter Reserve", year1: 0 * scale, escalation: 0.0 },
-      { name: "Other OPEX", year1: 117 * scale, escalation: 0.01 },
-      { name: "Land Lease", year1: 582 * scale, escalation: 0.02 }
-    ];
-  }
-
-  var portfolio = {
-    name: "SolarLedger Institutional Portfolio",
-    discountRate: 0.08,
-    assets: [
-      {
-        id: "yarotek",
-        name: "Yarotek",
-        region: "Duke NC",
-        technical: {
-          mwdc: 82,
-          yieldKwhPerKwp: 1710,
-          dcAcRatio: 1.43,
-          availability: 0.985,
-          degradation: 0.004,
-          cod: "2030-06-30",
-          assetLifeYears: 35
-        },
-        revenue: {
-          ppaPricePerMWh: 59,
-          ppaEscalation: 0.0,
-          ppaEndYear: 5,
-          merchantPricePerMWh: 65,
-          merchantEscalation: 0.015,
-          curtailment: 0.02
-        },
-        opex: {
-          lines: defaultOpexLines(1)
-        },
-        capex: {
-          lines: [
-            { name: "Modules", amount: 34440 },
-            { name: "Field & DC", amount: 31245 },
-            { name: "General & Administrative", amount: 11165 },
-            { name: "Substation / MV", amount: 7038 },
-            { name: "Interconnection", amount: 3080 },
-            { name: "Contingency", amount: 3130 },
-            { name: "Financing Fees & IDC", amount: 6000 }
-          ]
-        },
-        debt: {
-          loanSize: 27500,
-          interestRate: 0.085,
-          tenorYears: 20,
-          dscrCovenant: 1.25,
-          benchmark: "SOFR+2.5%"
-        },
-        itc: {
-          baseRate: 0.30,
-          adders: 0.10,
-          fmv: 142545,
-          fmvStepUp: 1.0
-        }
-      },
-      {
-        id: "project-iguana",
-        name: "Project Iguana",
-        region: "ERCOT",
-        technical: {
-          mwdc: 50,
-          yieldKwhPerKwp: 1780,
-          dcAcRatio: 1.35,
-          availability: 0.985,
-          degradation: 0.0045,
-          cod: "2031-03-31",
-          assetLifeYears: 35
-        },
-        revenue: {
-          ppaPricePerMWh: 52,
-          ppaEscalation: 0.01,
-          ppaEndYear: 10,
-          merchantPricePerMWh: 58,
-          merchantEscalation: 0.02,
-          curtailment: 0.03
-        },
-        opex: {
-          lines: defaultOpexLines(50 / 82)
-        },
-        capex: {
-          lines: [
-            { name: "Modules", amount: 21500 },
-            { name: "Field & DC", amount: 19200 },
-            { name: "General & Administrative", amount: 7200 },
-            { name: "Substation / MV", amount: 4700 },
-            { name: "Interconnection", amount: 2200 },
-            { name: "Contingency", amount: 2100 },
-            { name: "Financing Fees & IDC", amount: 3900 }
-          ]
-        },
-        debt: {
-          loanSize: 18000,
-          interestRate: 0.0825,
-          tenorYears: 18,
-          dscrCovenant: 1.25,
-          benchmark: "Placeholder debt"
-        },
-        itc: {
-          baseRate: 0.30,
-          adders: 0.00,
-          fmv: 87000,
-          fmvStepUp: 1.0
-        }
-      },
-      {
-        id: "bengal",
-        name: "Bengal",
-        region: "PJM",
-        technical: {
-          mwdc: 35,
-          yieldKwhPerKwp: 1650,
-          dcAcRatio: 1.30,
-          availability: 0.984,
-          degradation: 0.0045,
-          cod: "2031-09-30",
-          assetLifeYears: 35
-        },
-        revenue: {
-          ppaPricePerMWh: 55,
-          ppaEscalation: 0.005,
-          ppaEndYear: 7,
-          merchantPricePerMWh: 62,
-          merchantEscalation: 0.018,
-          curtailment: 0.02
-        },
-        opex: {
-          lines: defaultOpexLines(35 / 82)
-        },
-        capex: {
-          lines: [
-            { name: "Modules", amount: 15200 },
-            { name: "Field & DC", amount: 13400 },
-            { name: "General & Administrative", amount: 5200 },
-            { name: "Substation / MV", amount: 3100 },
-            { name: "Interconnection", amount: 1500 },
-            { name: "Contingency", amount: 1500 },
-            { name: "Financing Fees & IDC", amount: 2500 }
-          ]
-        },
-        debt: {
-          loanSize: 12000,
-          interestRate: 0.085,
-          tenorYears: 18,
-          dscrCovenant: 1.25,
-          benchmark: "Placeholder debt"
-        },
-        itc: {
-          baseRate: 0.30,
-          adders: 0.10,
-          fmv: 62000,
-          fmvStepUp: 1.0
-        }
-      }
-    ]
   };
 
-  var activeAsset = portfolio.assets[0].id;
+  var activeAsset = "yarotek";
 
   window.SolarLedger = {
-    portfolio: portfolio,
+    assets: assets,
     calcAsset: calcAsset,
-    calcPortfolio: calcPortfolio,
-    activeAsset: activeAsset,
-    round: round
+    activeAsset: activeAsset
   };
 })();

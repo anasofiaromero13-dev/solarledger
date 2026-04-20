@@ -702,12 +702,14 @@ html,body{height:100%;font-family:var(--sans);background:var(--navy);color:var(-
       <table class="tbl">
         <thead>
           <tr>
-            <th>Asset</th>
+            <th>Asset Name</th>
+            <th>MWdc</th>
             <th>IRR</th>
             <th>NPV ($)</th>
             <th>Min DSCR</th>
-            <th>Unlevered CapEx ($)</th>
-            <th>Target Test</th>
+            <th>CapEx ($)</th>
+            <th>PPA Tenor</th>
+            <th>Status</th>
           </tr>
         </thead>
         <tbody id="portfolio-summary-body"></tbody>
@@ -931,14 +933,15 @@ function buildOpexTable(yrs) {
 
 function buildDebtTable(yrs) {
   const SEL5 = [0,4,9,14,19];
+  const getYear = (idx) => yrs[idx] || {};
   const rows = [
-    {lbl:'Beginning Balance ($\'000)', vals: SEL5.map(i=>Math.round(yrs[i].debtBeginningBalance).toLocaleString()), cls:''},
-    {lbl:'(-) Amortization', vals: SEL5.map(i=>Math.round(yrs[i].principalRepayment).toLocaleString()), cls:''},
-    {lbl:'Interest Expense', vals: SEL5.map(i=>'('+Math.round(yrs[i].interestExpense).toLocaleString()+')'), cls:'', neg:true},
-    {lbl:'Total Debt Service', vals: SEL5.map(i=>'('+Math.round(yrs[i].debtService).toLocaleString()+')'), cls:'sub-total', neg:true},
-    {lbl:'EBITDA ($\'000)', vals: SEL5.map(i=>'$'+Math.round(yrs[i].ebitda).toLocaleString()), cls:''},
-    {lbl:'CFADS ($\'000)', vals: SEL5.map(i=>'$'+Math.round(yrs[i].cashAfterDebtService).toLocaleString()), cls:'sub-total'},
-    {lbl:'DSCR', vals: SEL5.map(i=>yrs[i].dscr?yrs[i].dscr.toFixed(2)+'x':'n/a'), cls:'total'},
+    {lbl:'Beginning Balance ($\'000)', vals: SEL5.map(i=>Math.round(getYear(i).debtBeginningBalance || 0).toLocaleString()), cls:''},
+    {lbl:'(-) Amortization', vals: SEL5.map(i=>Math.round(getYear(i).principalRepayment || 0).toLocaleString()), cls:''},
+    {lbl:'Interest Expense', vals: SEL5.map(i=>'('+Math.round(getYear(i).interestExpense || 0).toLocaleString()+')'), cls:'', neg:true},
+    {lbl:'Total Debt Service', vals: SEL5.map(i=>'('+Math.round(getYear(i).debtService || 0).toLocaleString()+')'), cls:'sub-total', neg:true},
+    {lbl:'EBITDA ($\'000)', vals: SEL5.map(i=>'$'+Math.round(getYear(i).ebitda || 0).toLocaleString()), cls:''},
+    {lbl:'CFADS ($\'000)', vals: SEL5.map(i=>'$'+Math.round(getYear(i).cfads || 0).toLocaleString()), cls:'sub-total'},
+    {lbl:'DSCR', vals: SEL5.map(i=>getYear(i).dscr ? getYear(i).dscr.toFixed(2)+'x':'n/a'), cls:'total'},
   ];
   document.getElementById('debt-tbody').innerHTML = rows.map(r=>
     `<tr class="${r.cls}"><td class="bold">${r.lbl}</td>${r.vals.map(v=>`<td class="val ${r.neg?'neg':r.cls==='total'?'pos':''}">${v}</td>`).join('')}</tr>`
@@ -972,19 +975,22 @@ function buildPortfolioSummary() {
   const body = document.getElementById('portfolio-summary-body');
   if (!body || !latestPortfolioResult) return;
   body.innerHTML = latestPortfolioResult.summaryByAsset.map((row) => {
-    const capex = row.id === activeAsset.id
-      ? activeAsset.capex.lines.reduce((s,l)=>s + (Number(l.amount)||0),0)
-      : (portfolio.assets.find(a=>a.id===row.id)?.capex.lines || []).reduce((s,l)=>s + (Number(l.amount)||0),0);
+    const assetRef = portfolio.assets.find(a=>a.id===row.id);
+    const capex = (assetRef?.capex.lines || []).reduce((s,l)=>s + (Number(l.amount)||0),0);
+    const ppaTenor = assetRef?.revenue?.ppaEndYear ?? '—';
+    const mwdc = assetRef?.technical?.mwdc ?? '—';
     const irr = row.metrics.irr || 0;
     let badge = '<span class="badge badge-red">Red</span>';
-    if (irr >= TARGET_IRR + 0.01) badge = '<span class="badge badge-green">Green</span>';
-    else if (irr >= TARGET_IRR) badge = '<span class="badge badge-amber">Amber</span>';
+    if (irr > TARGET_IRR) badge = '<span class="badge badge-green">Green</span>';
+    else if (irr >= (TARGET_IRR - 0.02)) badge = '<span class="badge badge-amber">Amber</span>';
     return `<tr>
       <td>${row.name}</td>
+      <td class="num">${mwdc}</td>
       <td class="num">${fmtPct(irr)}</td>
       <td class="num">$${Math.round(row.metrics.npv || 0).toLocaleString()}</td>
       <td class="num">${row.metrics.minDscr ? row.metrics.minDscr.toFixed(2)+'x' : '—'}</td>
       <td class="num">$${Math.round(capex).toLocaleString()}</td>
+      <td class="num">${ppaTenor}</td>
       <td>${badge}</td>
     </tr>`;
   }).join('');
@@ -1010,6 +1016,7 @@ function switchAsset(assetId) {
   const found = portfolio.assets.find(a => a.id === assetId);
   if (!found) return;
   activeAsset = found;
+  engine.activeAsset = found.id;
   hydrateInputsFromAsset(activeAsset);
   refreshDealCard();
   recalc();
