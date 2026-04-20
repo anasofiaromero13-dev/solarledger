@@ -745,7 +745,7 @@ html,body{height:100%;font-family:var(--sans);background:var(--navy);color:var(-
   }
 
   function calcIRR(cashFlows) {
-    var guess = 0.10;
+    var guess = 0.15;
     for (var iter = 0; iter < 100; iter += 1) {
       var npvVal = npvCalc(guess, cashFlows);
       var npvDerivative = 0;
@@ -1499,7 +1499,7 @@ recalc();
   }
 
   function calcIRR(cashFlows) {
-    var guess = 0.10;
+    var guess = 0.15;
     for (var iter = 0; iter < 100; iter += 1) {
       var npvVal = npvCalc(guess, cashFlows);
       var npvDerivative = 0;
