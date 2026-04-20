@@ -741,7 +741,7 @@ const TITLES = [
 ];
 const CTA = ['Run AI Analysis →','Build Financial Model →','Engineering Review →','Open Analyst Chat →','Generate Memo →','Portfolio Summary →','Export Package'];
 const TARGET_IRR = 0.10;
-const engine = window.SolarLedger;
+const engine = window.SolarLedger || {};
 const assetEntries = Object.entries(engine.assets);
 let activeAssetKey = engine.activeAsset || assetEntries[0][0];
 let activeAsset = engine.assets[activeAssetKey];
