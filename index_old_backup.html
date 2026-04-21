@@ -1,0 +1,1957 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SolarLedger — M&A Financial Modeling Platform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#060D1F;--navy2:#0B1428;--navy3:#111E35;
+  --blue:#1565C7;--blue-mid:#1976D2;--blue-light:#E3F0FF;--blue-pale:#F0F7FF;
+  --teal:#00897B;--teal-bg:#E0F2F1;
+  --amber:#E65100;--amber-bg:#FFF3E0;
+  --red:#C62828;--red-bg:#FFEBEE;
+  --green:#2E7D32;--green-bg:#E8F5E9;
+  --line:#1E2D45;--line-light:#E8EFF8;
+  --text:#0D1B2E;--text2:#4A5568;--text3:#8C9AB0;
+  --surface:#F7FAFD;--white:#FFFFFF;
+  --mono:'IBM Plex Mono',monospace;
+  --serif:'Instrument Serif',serif;
+  --sans:'DM Sans',sans-serif;
+  --r:8px;--r-lg:12px;
+}
+html,body{height:100%;font-family:var(--sans);background:var(--navy);color:var(--text)}
+.app{display:flex;height:100vh;overflow:hidden}
+
+/* ── SIDEBAR ── */
+.sidebar{width:230px;flex-shrink:0;background:var(--navy);display:flex;flex-direction:column;border-right:1px solid var(--line)}
+.brand{padding:18px 20px 16px;border-bottom:1px solid var(--line)}
+.brand-logo{font-family:var(--serif);font-size:22px;color:#fff;letter-spacing:-0.01em}
+.brand-logo em{font-style:italic;color:#4A9EF0}
+.brand-sub{font-size:10px;color:rgba(255,255,255,.25);letter-spacing:.08em;text-transform:uppercase;margin-top:2px}
+.deal-card{margin:12px 12px 4px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:10px 12px}
+.deal-card-label{font-size:9px;color:rgba(255,255,255,.25);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px}
+.deal-card-name{font-size:12px;color:rgba(255,255,255,.85);font-weight:500}
+.deal-card-meta{font-size:11px;color:rgba(255,255,255,.3);margin-top:2px}
+.nav{padding:8px 10px;flex:1;overflow-y:auto}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r);cursor:pointer;font-size:12.5px;color:rgba(255,255,255,.4);transition:all .15s;border:none;background:none;width:100%;text-align:left;margin-bottom:1px}
+.nav-item:hover{background:rgba(255,255,255,.05);color:rgba(255,255,255,.7)}
+.nav-item.active{background:rgba(74,158,240,.14);color:#4A9EF0;font-weight:500}
+.nav-num{width:19px;height:19px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0;background:rgba(255,255,255,.07);color:rgba(255,255,255,.25);font-family:var(--mono)}
+.nav-item.active .nav-num{background:rgba(74,158,240,.25);color:#4A9EF0}
+.nav-item.done .nav-num{background:rgba(46,125,50,.25);color:#66BB6A;font-size:9px}
+.nav-item.done{color:rgba(255,255,255,.3)}
+.sidebar-foot{padding:12px 14px;border-top:1px solid var(--line);font-size:10px;color:rgba(255,255,255,.15)}
+
+/* ── MAIN ── */
+.main{flex:1;overflow-y:auto;background:var(--surface);display:flex;flex-direction:column}
+.topbar{background:var(--white);border-bottom:1px solid var(--line-light);padding:0 24px;height:54px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:20;flex-shrink:0}
+.topbar-left h1{font-size:14px;font-weight:600;color:var(--text);letter-spacing:-.01em}
+.topbar-left p{font-size:11px;color:var(--text3)}
+.topbar-right{display:flex;gap:8px;align-items:center}
+.btn{font-family:var(--sans);font-size:12px;font-weight:500;padding:6px 14px;border-radius:var(--r);cursor:pointer;border:1px solid var(--line-light);background:var(--white);color:var(--text2);transition:all .15s}
+.btn:hover{border-color:#CBD5E1;background:var(--surface)}
+.btn-primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn-primary:hover{background:#1253A4}
+.btn-sm{font-size:11px;padding:4px 10px}
+.content{padding:24px;flex:1}
+
+/* ── SCREEN ── */
+.screen{display:none;animation:fadeUp .2s ease}
+.screen.active{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── CARDS ── */
+.card{background:var(--white);border:1px solid var(--line-light);border-radius:var(--r-lg);padding:18px 20px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.card-hd{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between}
+.card-hd-actions{display:flex;gap:6px}
+.mb16{margin-bottom:16px}
+.mb20{margin-bottom:20px}
+
+/* ── METRICS ── */
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+.metric{background:var(--white);border:1px solid var(--line-light);border-radius:var(--r);padding:13px 15px}
+.metric-label{font-size:10px;color:var(--text3);margin-bottom:5px}
+.metric-value{font-size:22px;font-weight:600;letter-spacing:-.03em;line-height:1;font-family:var(--mono)}
+.metric-sub{font-size:10px;color:var(--text3);margin-top:3px}
+.mv-blue{color:var(--blue)}
+.mv-green{color:var(--green)}
+.mv-amber{color:var(--amber)}
+.mv-red{color:var(--red)}
+
+/* ── TABLES ── */
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;padding:7px 10px;text-align:left;border-bottom:1px solid var(--line-light);background:var(--surface)}
+.tbl td{padding:9px 10px;border-bottom:1px solid var(--line-light);color:var(--text2)}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:#FAFBFF}
+.tbl td.num{font-family:var(--mono);font-size:11px;text-align:right}
+.tbl td.bold{font-weight:600;color:var(--text)}
+.tbl-total td{background:var(--blue-pale)!important;font-weight:600;color:var(--text)!important;border-top:2px solid var(--blue-light)!important}
+
+/* ── BADGES ── */
+.badge{font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;display:inline-block}
+.badge-green{background:var(--green-bg);color:var(--green)}
+.badge-amber{background:var(--amber-bg);color:var(--amber)}
+.badge-red{background:var(--red-bg);color:var(--red)}
+.badge-blue{background:var(--blue-light);color:var(--blue)}
+.badge-teal{background:var(--teal-bg);color:var(--teal)}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block;flex-shrink:0}
+.dot-green{background:#43A047}
+.dot-amber{background:#FB8C00}
+.dot-red{background:#E53935}
+
+/* ── FORM ── */
+.form-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.form-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fg{margin-bottom:0}
+.fg label{display:block;font-size:11px;font-weight:500;color:var(--text2);margin-bottom:4px}
+.fg input,.fg select{width:100%;font-family:var(--sans);font-size:12px;padding:7px 10px;border-radius:var(--r);border:1px solid var(--line-light);background:var(--white);color:var(--text);transition:border-color .15s;outline:none}
+.fg input:focus,.fg select:focus{border-color:var(--blue)}
+.fg input.blue-input{color:var(--blue);font-family:var(--mono);font-weight:500}
+.fg input.flagged{border-color:#F59E0B;background:#FFFBEB}
+.fg .unit{font-size:10px;color:var(--text3);margin-top:3px}
+
+/* ── TWO COL LAYOUT ── */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.col-gap{display:flex;flex-direction:column;gap:16px}
+
+/* ── SECTION HEADER ── */
+.sec-hd{margin-bottom:16px}
+.sec-hd h2{font-size:16px;font-weight:600;color:var(--text);letter-spacing:-.02em}
+.sec-hd p{font-size:12px;color:var(--text3);margin-top:2px}
+
+/* ── UPLOAD ── */
+.upload-zone{border:2px dashed var(--line-light);border-radius:var(--r-lg);padding:36px;text-align:center;cursor:pointer;transition:all .2s;background:var(--white);margin-bottom:14px}
+.upload-zone:hover{border-color:var(--blue);background:var(--blue-pale)}
+.upload-icon{width:44px;height:44px;border-radius:10px;background:var(--blue-light);display:flex;align-items:center;justify-content:center;margin:0 auto 10px}
+.upload-icon svg{width:20px;height:20px;stroke:var(--blue)}
+.upload-title{font-size:14px;font-weight:600;margin-bottom:3px}
+.upload-sub{font-size:12px;color:var(--text3)}
+.file-list{display:flex;flex-wrap:wrap;gap:7px}
+.file-chip{display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--line-light);border-radius:20px;padding:4px 11px;font-size:11px;color:var(--text2);font-family:var(--mono)}
+.file-dot{width:6px;height:6px;border-radius:50%;background:var(--green);flex-shrink:0}
+
+/* ── ASSUMPTIONS TABLE (color-coded like real model) ── */
+.asmp-table{width:100%;border-collapse:collapse;font-size:12px}
+.asmp-table th{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;padding:6px 10px;text-align:left;border-bottom:1px solid var(--line-light);background:var(--surface)}
+.asmp-table td{padding:6px 10px;border-bottom:1px solid var(--line-light);vertical-align:middle}
+.asmp-table tr:hover td{background:#FAFBFF}
+.asmp-input{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--blue);background:none;border:none;outline:none;width:100%;text-align:right;cursor:pointer;padding:2px 4px;border-radius:4px;transition:background .15s}
+.asmp-input:focus{background:var(--blue-pale);border:1px solid var(--blue)}
+.asmp-input.flagged{color:#B45309;background:#FFFBEB}
+.asmp-formula{font-family:var(--mono);font-size:11px;color:var(--text2)}
+.asmp-link{font-family:var(--mono);font-size:11px;color:var(--green)}
+.asmp-section td{background:var(--navy3)!important;color:rgba(255,255,255,.7)!important;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.06em;padding:5px 10px}
+.color-key{display:flex;gap:16px;margin-bottom:12px;font-size:11px;color:var(--text3)}
+.color-key-item{display:flex;align-items:center;gap:5px}
+.ck-blue{color:var(--blue);font-family:var(--mono);font-weight:600}
+.ck-black{color:var(--text);font-family:var(--mono)}
+.ck-green{color:var(--green);font-family:var(--mono)}
+.ck-yellow{background:#FEF3C7;color:#92400E;padding:1px 5px;border-radius:3px;font-family:var(--mono);font-size:10px}
+
+/* ── FINANCIAL MODEL GRID ── */
+.model-grid{width:100%;overflow-x:auto}
+.model-tbl{width:100%;border-collapse:collapse;font-size:11px;min-width:900px}
+.model-tbl th{font-size:9px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;padding:5px 8px;text-align:right;border-bottom:2px solid var(--navy);background:var(--navy);color:rgba(255,255,255,.6);white-space:nowrap}
+.model-tbl th:first-child{text-align:left;min-width:180px}
+.model-tbl td{padding:5px 8px;border-bottom:1px solid var(--line-light);white-space:nowrap}
+.model-tbl td:first-child{font-size:11px;color:var(--text2);font-weight:500}
+.model-tbl td.val{font-family:var(--mono);font-size:11px;text-align:right;color:var(--text2)}
+.model-tbl tr.total td{background:var(--blue-pale)!important;font-weight:700;color:var(--text)!important;border-top:2px solid #93C5FD}
+.model-tbl tr.total td.val{color:var(--blue)!important}
+.model-tbl tr.sub-total td{background:#F1F5F9;font-weight:600;color:var(--text2)}
+.model-tbl tr.section-row td{background:var(--navy3);color:rgba(255,255,255,.6);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;padding:4px 8px}
+.model-tbl tr:hover td:not(.section-row td){background:#F8FBFF}
+.model-tbl .neg{color:var(--red)!important}
+.model-tbl .pos{color:var(--green)!important}
+.model-tbl .highlight{background:#FFF9C4!important}
+
+/* ── SCENARIO TABS ── */
+.scen-tabs{display:inline-flex;gap:4px;padding:4px;background:var(--surface);border-radius:var(--r);border:1px solid var(--line-light);margin-bottom:14px}
+.scen-tab{font-family:var(--sans);font-size:11px;font-weight:500;padding:4px 12px;border-radius:6px;cursor:pointer;border:none;background:transparent;color:var(--text3);transition:all .15s}
+.scen-tab.active{background:var(--white);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+
+/* ── ANALYST CHAT ── */
+.chat-panel{display:flex;flex-direction:column;height:420px;background:var(--white);border:1px solid var(--line-light);border-radius:var(--r-lg)}
+.chat-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
+.chat-messages::-webkit-scrollbar{width:4px}
+.chat-messages::-webkit-scrollbar-thumb{background:var(--line-light);border-radius:2px}
+.msg{display:flex;gap:8px;align-items:flex-start;animation:fadeUp .2s ease}
+.msg-avatar{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
+.msg-avatar.user{background:var(--blue-light);color:var(--blue)}
+.msg-avatar.ai{background:var(--navy);color:#4A9EF0}
+.msg-bubble{background:var(--surface);border:1px solid var(--line-light);border-radius:10px;border-top-left-radius:2px;padding:9px 12px;font-size:12px;color:var(--text);line-height:1.55;max-width:88%}
+.msg.user .msg-bubble{background:var(--blue-pale);border-color:#C7DFF7;margin-left:auto}
+.msg.user{flex-direction:row-reverse}
+.msg-code{font-family:var(--mono);font-size:11px;background:#F1F5F9;border:1px solid var(--line-light);border-radius:6px;padding:8px 10px;margin-top:6px;color:var(--text2)}
+.msg-change{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:11px}
+.change-from{color:var(--red);text-decoration:line-through;font-family:var(--mono)}
+.change-to{color:var(--green);font-family:var(--mono);font-weight:600}
+.change-arrow{color:var(--text3)}
+.chat-input-area{padding:12px;border-top:1px solid var(--line-light);display:flex;gap:8px}
+.chat-input{flex:1;font-family:var(--sans);font-size:12px;padding:8px 12px;border-radius:var(--r);border:1px solid var(--line-light);outline:none;transition:border-color .15s;resize:none;height:36px}
+.chat-input:focus{border-color:var(--blue)}
+.chat-suggestions{padding:8px 12px 0;display:flex;gap:6px;flex-wrap:wrap}
+.suggestion{font-size:10px;padding:3px 9px;border-radius:20px;border:1px solid var(--line-light);background:var(--surface);color:var(--text3);cursor:pointer;transition:all .15s;white-space:nowrap}
+.suggestion:hover{background:var(--blue-pale);border-color:#93C5FD;color:var(--blue)}
+
+/* ── RISK REGISTER ── */
+.risk-item{display:flex;gap:12px;padding:11px 0;border-bottom:1px solid var(--line-light)}
+.risk-item:last-child{border-bottom:none}
+.risk-sev{flex-shrink:0;padding-top:1px}
+.risk-body{flex:1}
+.risk-title{font-size:12px;font-weight:600;color:var(--text);margin-bottom:3px}
+.risk-desc{font-size:11px;color:var(--text3);line-height:1.55}
+.risk-impact{font-size:10px;font-family:var(--mono);font-weight:600;margin-top:4px}
+.risk-impact.high{color:var(--red)}
+.risk-impact.med{color:var(--amber)}
+.risk-action{font-size:10px;color:var(--teal);margin-top:2px}
+
+/* ── RETURNS ── */
+.return-box{background:var(--white);border:1px solid var(--line-light);border-radius:var(--r);padding:14px 16px;text-align:center}
+.return-label{font-size:10px;color:var(--text3);margin-bottom:5px}
+.return-val{font-size:24px;font-weight:600;letter-spacing:-.03em;font-family:var(--mono)}
+.return-sub{font-size:10px;color:var(--text3);margin-top:3px}
+
+/* ── CHART ── */
+.chart-wrap{height:180px;display:flex;align-items:flex-end;gap:3px;padding:20px 0 22px;position:relative;overflow:hidden}
+.chart-bar{flex:1;border-radius:3px 3px 0 0;transition:opacity .2s,height .4s ease;cursor:default;position:relative;min-width:8px}
+.chart-bar:hover{opacity:.75}
+.chart-bar-label{position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:8px;color:var(--text3);white-space:nowrap;font-family:var(--mono)}
+.chart-y-label{position:absolute;left:0;top:0;font-size:8px;color:var(--text3);font-family:var(--mono)}
+
+/* ── MEMO ── */
+.memo-score{display:flex;align-items:center;gap:16px;padding:14px 16px;background:var(--blue-pale);border:1px solid #C7DFF7;border-radius:var(--r);margin-bottom:16px}
+.score-ring{width:64px;height:64px;border-radius:50%;border:3px solid var(--blue);display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0}
+.score-n{font-size:20px;font-weight:700;color:var(--blue);font-family:var(--mono);line-height:1}
+.score-d{font-size:9px;color:var(--text3)}
+.score-txt h3{font-size:14px;font-weight:600;color:var(--text)}
+.score-txt p{font-size:11px;color:var(--text3);margin-top:2px;line-height:1.5}
+.memo-block{padding:12px 0;border-bottom:1px solid var(--line-light)}
+.memo-block:last-child{border-bottom:none}
+.memo-lbl{font-size:9px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px}
+.memo-txt{font-size:12px;color:var(--text);line-height:1.65}
+.memo-fin-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+.fin-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--line-light);font-size:12px}
+.fin-row:last-child{border-bottom:none}
+.fin-lbl{color:var(--text3)}
+.fin-val{font-family:var(--mono);font-weight:600;color:var(--text)}
+.fin-val.pos{color:var(--green)}
+.fin-val.warn{color:var(--amber)}
+
+/* ── ACTIONS BAR ── */
+.actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px;padding-top:16px;border-top:1px solid var(--line-light)}
+
+/* ── AUDIT TRAIL ── */
+.audit-item{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--line-light);font-size:11px}
+.audit-item:last-child{border-bottom:none}
+.audit-ts{font-family:var(--mono);font-size:10px;color:var(--text3);white-space:nowrap;min-width:80px}
+.audit-field{font-weight:600;color:var(--text)}
+.audit-from{color:var(--red);text-decoration:line-through;font-family:var(--mono)}
+.audit-to{color:var(--green);font-family:var(--mono);font-weight:600}
+.audit-by{font-size:10px;color:var(--text3);margin-top:1px}
+
+/* ── SCROLLBAR ── */
+.main::-webkit-scrollbar{width:5px}
+.main::-webkit-scrollbar-thumb{background:var(--line-light);border-radius:3px}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ═══ SIDEBAR ═══ -->
+<aside class="sidebar">
+  <div class="brand">
+    <div class="brand-logo">Solar<em>Ledger</em></div>
+    <div class="brand-sub">M&A Due Diligence Platform</div>
+  </div>
+  <div class="deal-card">
+    <div class="deal-card-label">Active Deal</div>
+    <select id="asset-switcher" onchange="switchAsset(this.value)" style="width:100%;font-family:var(--sans);font-size:12px;padding:6px 8px;border-radius:var(--r);border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);color:rgba(255,255,255,.9)">
+    </select>
+    <div class="deal-card-name" id="deal-card-name" style="margin-top:8px">Yarotek Portfolio</div>
+    <div class="deal-card-meta" id="deal-card-meta">82 MWdc · Duke NC · Utility-Scale Development</div>
+    <div style="margin-top:6px"><span class="badge badge-blue" id="deal-card-badge">Development</span></div>
+  </div>
+  <nav class="nav">
+    <button class="nav-item active" onclick="go('upload',this)"><span class="nav-num">1</span>Upload Data Room</button>
+    <button class="nav-item" onclick="go('assumptions',this)"><span class="nav-num">2</span>Review Assumptions</button>
+    <button class="nav-item" onclick="go('model',this)"><span class="nav-num">3</span>Financial Model</button>
+    <button class="nav-item" onclick="go('engineering',this)"><span class="nav-num">4</span>Engineering Review</button>
+    <button class="nav-item" onclick="go('chat',this)"><span class="nav-num">5</span>Analyst Chat</button>
+    <button class="nav-item" onclick="go('memo',this)"><span class="nav-num">6</span>Investment Memo</button>
+    <button class="nav-item" onclick="go('summary',this)"><span class="nav-num">7</span>Portfolio Summary</button>
+  </nav>
+  <div class="sidebar-foot">Talera · SolarLedger v1.0 · April 2026</div>
+</aside>
+
+<!-- ═══ MAIN ═══ -->
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-left">
+      <h1 id="top-title">Upload Data Room</h1>
+      <p id="top-sub">Step 1 of 6 — Add all deal documents to begin AI extraction</p>
+    </div>
+    <div class="topbar-right">
+      <button class="btn btn-sm">Save Draft</button>
+      <button class="btn btn-primary btn-sm" id="main-cta" onclick="handleCTA()">Run AI Analysis →</button>
+    </div>
+  </div>
+  <div class="content">
+
+  <!-- ══ SCREEN 1: UPLOAD ══ -->
+  <div class="screen active" id="s-upload">
+    <div class="sec-hd mb20">
+      <h2>New Deal Analysis</h2>
+      <p>Upload the full data room. SolarLedger reads every file and extracts structured assumptions automatically.</p>
+    </div>
+    <div class="upload-zone">
+      <div class="upload-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+      <div class="upload-title">Drop files here or click to browse</div>
+      <div class="upload-sub">PDF, Excel, CSV — PVsyst reports, PPAs, EPC schedules, interconnection docs, debt term sheets</div>
+    </div>
+    <div class="card mb16">
+      <div class="card-hd">Files Parsed — 8 of 8 ready <span class="badge badge-green">AI Extraction Complete</span></div>
+      <div class="file-list">
+        <div class="file-chip"><span class="file-dot"></span>PVsyst_Yarotek_P50_Report.pdf</div>
+        <div class="file-chip"><span class="file-dot"></span>Duke_Energy_PPA_Agreement.pdf</div>
+        <div class="file-chip"><span class="file-dot"></span>Foley_EPC_CAPEX_Schedule.xlsx</div>
+        <div class="file-chip"><span class="file-dot"></span>Interconnection_Agreement_Duke.pdf</div>
+        <div class="file-chip"><span class="file-dot"></span>Equipment_Specs_Inverters_Modules.pdf</div>
+        <div class="file-chip"><span class="file-dot"></span>Debt_Term_Sheet_SOFR.pdf</div>
+        <div class="file-chip"><span class="file-dot"></span>Land_Lease_Hoke_County.pdf</div>
+        <div class="file-chip"><span class="file-dot"></span>Independent_Engineering_Report.pdf</div>
+      </div>
+    </div>
+    <div class="card mb16">
+      <div class="card-hd">Deal Details</div>
+      <div class="form-grid">
+        <div class="fg"><label>Deal Name</label><input type="text" value="Yarotek Portfolio"></div>
+        <div class="fg"><label>Asking Price ($'000)</label><input type="number" value="110000" class="blue-input"></div>
+        <div class="fg"><label>Grid Operator</label><select><option>Duke Energy Carolinas</option><option>ERCOT</option><option>PJM</option><option>MISO</option></select></div>
+        <div class="fg"><label>MW dc</label><input type="number" value="82" class="blue-input"></div>
+        <div class="fg"><label>Asset Type</label><select><option>Utility-Scale Ground Mount</option><option>C&I Rooftop</option><option>Carport</option></select></div>
+        <div class="fg"><label>Target IRR (%)</label><input type="number" value="10.0" step="0.1" class="blue-input"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hd">AI Extraction Preview</div>
+      <table class="tbl">
+        <thead><tr><th>Document</th><th>Fields Extracted</th><th>Status</th><th>Confidence</th></tr></thead>
+        <tbody>
+          <tr><td>PVsyst Report</td><td>P50 yield 1,710 kWh/kWp · PR 81.5% · Degradation 0.40%/yr · DC/AC 1.43x</td><td><span class="badge badge-green">Mapped</span></td><td class="num">97%</td></tr>
+          <tr><td>Duke Energy PPA</td><td>$59/MWh · 0% escalation · 2030–2034 · Change-of-control clause flagged</td><td><span class="badge badge-green">Mapped</span></td><td class="num">94%</td></tr>
+          <tr><td>Foley EPC / CAPEX</td><td>Total $110.4M · Modules $34.4M · EPC margin 7.6% · 15-month schedule</td><td><span class="badge badge-green">Mapped</span></td><td class="num">99%</td></tr>
+          <tr><td>Interconnection Agreement</td><td>Duke RSC cluster · COD Q2 2030 · Deposit $1.35M · Queue position active</td><td><span class="badge badge-green">Mapped</span></td><td class="num">91%</td></tr>
+          <tr><td>Debt Term Sheet</td><td>$27.5M · SOFR+2.50% · 20yr · DSCR covenant 1.25x · DSRA 6 months</td><td><span class="badge badge-green">Mapped</span></td><td class="num">98%</td></tr>
+          <tr><td>Land Lease</td><td>$582K/yr · 2.0% escalation · 35yr term · Change-of-control: <span class="badge badge-amber">Review</span></td><td><span class="badge badge-amber">Flagged</span></td><td class="num">88%</td></tr>
+          <tr><td>Equipment Specs</td><td>Safe Harbor status: <span class="badge badge-green">Confirmed</span> · ITC recapture: None · FAT: Scheduled</td><td><span class="badge badge-green">Mapped</span></td><td class="num">95%</td></tr>
+          <tr><td>IE Report</td><td>P50 validated · Degradation within range · 3 minor findings · No critical issues</td><td><span class="badge badge-green">Mapped</span></td><td class="num">92%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="actions"><button class="btn btn-primary" onclick="go('assumptions',document.querySelectorAll('.nav-item')[1])">Review Assumptions →</button></div>
+  </div>
+
+  <!-- ══ SCREEN 2: ASSUMPTIONS ══ -->
+  <div class="screen" id="s-assumptions">
+    <div class="sec-hd mb16">
+      <h2>Review & Override Assumptions</h2>
+      <p>All values extracted from documents. Blue = AI-extracted input. Yellow = flagged for review. Click any value to edit.</p>
+    </div>
+    <div class="color-key">
+      <div class="color-key-item"><span class="ck-blue">1,710</span><span>Hardcode / extracted input</span></div>
+      <div class="color-key-item"><span class="ck-black">=C6*C7</span><span>Formula (calculated)</span></div>
+      <div class="color-key-item"><span class="ck-green">→Revenue</span><span>Cross-sheet link</span></div>
+      <div class="color-key-item"><span class="ck-yellow">65.0</span><span>Flagged — review required</span></div>
+    </div>
+    <div class="two-col mb16">
+      <div class="card">
+        <div class="card-hd">A. Technical Parameters</div>
+        <table class="asmp-table">
+          <thead><tr><th>Parameter</th><th>Unit</th><th style="text-align:right">Value</th></tr></thead>
+          <tbody>
+            <tr><td>MW dc (Nameplate)</td><td>MWdc</td><td><input class="asmp-input" id="a-mwdc" value="82.0" onchange="recalc()"></td></tr>
+            <tr><td>MW ac (POI)</td><td>MWac</td><td><input class="asmp-input" id="a-mwac" value="42.1" onchange="recalc()"></td></tr>
+            <tr><td>DC / AC Ratio</td><td>x</td><td><input class="asmp-input" value="1.43" readonly></td></tr>
+            <tr><td>Annual Yield (P50)</td><td>kWh/kWp</td><td><input class="asmp-input" id="a-yield" value="1,710" onchange="recalc()"></td></tr>
+            <tr><td>Availability Factor</td><td>%</td><td><input class="asmp-input" id="a-avail" value="98.5%" onchange="recalc()"></td></tr>
+            <tr><td>Annual Degradation</td><td>%/yr</td><td><input class="asmp-input" id="a-degrad" value="0.40%" onchange="recalc()"></td></tr>
+            <tr><td>COD Date</td><td></td><td><input class="asmp-input" value="Q2 2030" readonly></td></tr>
+            <tr><td>Asset Life</td><td>years</td><td><input class="asmp-input" id="a-life" value="35" onchange="recalc()"></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-hd">B. Revenue Assumptions</div>
+        <table class="asmp-table">
+          <thead><tr><th>Parameter</th><th>Unit</th><th style="text-align:right">Value</th></tr></thead>
+          <tbody>
+            <tr><td>PPA Price (Year 1)</td><td>$/MWh</td><td><input class="asmp-input" id="a-ppa" value="59.00" onchange="recalc()"></td></tr>
+            <tr><td>PPA Escalation</td><td>%/yr</td><td><input class="asmp-input" id="a-ppaesc" value="0.0%" onchange="recalc()"></td></tr>
+            <tr><td>PPA Tenor</td><td>years</td><td><input class="asmp-input" id="a-ppaten" value="5" onchange="recalc()"></td></tr>
+            <tr><td>Merchant Price (Post-PPA)</td><td>$/MWh</td><td><input class="asmp-input flagged" id="a-merch" value="65.00" onchange="recalc()" title="Flagged — Aurora consensus $65; seller assumed $70"></td></tr>
+            <tr><td>Merchant Escalation</td><td>%/yr</td><td><input class="asmp-input flagged" id="a-merchesc" value="1.5%" onchange="recalc()"></td></tr>
+            <tr><td>Curtailment</td><td>%</td><td><input class="asmp-input" id="a-curtail" value="2.0%" onchange="recalc()"></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="two-col mb16">
+      <div class="card">
+        <div class="card-hd">C. CAPEX ($'000)</div>
+        <table class="asmp-table">
+          <thead><tr><th>Line Item</th><th style="text-align:right">$'000</th><th style="text-align:right">$/Wdc</th></tr></thead>
+          <tbody>
+            <tr><td>Modules</td><td><input class="asmp-input" value="34,440" onchange="recalc()"></td><td><span class="asmp-formula">$0.420</span></td></tr>
+            <tr><td>Field & DC (excl. Modules)</td><td><input class="asmp-input" value="31,245" onchange="recalc()"></td><td><span class="asmp-formula">$0.381</span></td></tr>
+            <tr><td>General & Administrative</td><td><input class="asmp-input" value="11,165" onchange="recalc()"></td><td><span class="asmp-formula">$0.136</span></td></tr>
+            <tr><td>Substation / MV</td><td><input class="asmp-input" value="7,038" onchange="recalc()"></td><td><span class="asmp-formula">$0.086</span></td></tr>
+            <tr><td>Interconnection</td><td><input class="asmp-input" value="3,080" onchange="recalc()"></td><td><span class="asmp-formula">$0.038</span></td></tr>
+            <tr><td>Contingency (3.5%)</td><td><input class="asmp-input flagged" id="a-contingency" value="3,130" onchange="recalc()"></td><td><span class="asmp-formula">$0.038</span></td></tr>
+            <tr style="background:var(--blue-pale)"><td style="font-weight:700">Total Unlevered CapEx</td><td style="text-align:right;font-family:var(--mono);font-weight:700" id="a-capex-total">110,432</td><td><span class="asmp-formula asmp-link" id="a-capex-wdc">$1.346</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-hd">D. Debt & ITC Structure</div>
+        <table class="asmp-table">
+          <thead><tr><th>Parameter</th><th>Unit</th><th style="text-align:right">Value</th></tr></thead>
+          <tbody>
+            <tr><td>Term Loan Size</td><td>$'000</td><td><input class="asmp-input" id="a-loan" value="27,500" onchange="recalc()"></td></tr>
+            <tr><td>Interest Rate</td><td></td><td><input class="asmp-input" value="SOFR+2.50%" readonly></td></tr>
+            <tr><td>Loan Tenor</td><td>years</td><td><input class="asmp-input" value="20" readonly></td></tr>
+            <tr><td>DSCR Covenant</td><td>x</td><td><input class="asmp-input" value="1.25x" readonly></td></tr>
+            <tr><td>ITC Base Rate</td><td>%</td><td><input class="asmp-input" value="30%" readonly></td></tr>
+            <tr><td>Energy Community Adder</td><td>%</td><td><input class="asmp-input" value="10%" readonly></td></tr>
+            <tr><td>Total ITC</td><td>%</td><td><input class="asmp-input" id="a-itc" value="40%" onchange="recalc()"></td></tr>
+            <tr><td>FMV ($'000)</td><td></td><td><input class="asmp-input" id="a-fmv" value="142,545" onchange="recalc()"></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn" onclick="go('upload',document.querySelectorAll('.nav-item')[0])">← Back</button>
+      <button class="btn btn-primary" onclick="go('model',document.querySelectorAll('.nav-item')[2])">Build Financial Model →</button>
+    </div>
+  </div>
+
+  <!-- ══ SCREEN 3: FINANCIAL MODEL ══ -->
+  <div class="screen" id="s-model">
+    <div class="sec-hd mb16">
+      <h2>Financial Model — 35-Year Projection</h2>
+      <p>All figures in $'000. Adjust scenario or assumptions in real time.</p>
+    </div>
+    <div class="metrics" id="model-metrics">
+      <div class="metric"><div class="metric-label">Levered IRR (Pre-Tax)</div><div class="metric-value mv-blue" id="m-irr">12.9%</div><div class="metric-sub">Target: 10.0%</div></div>
+      <div class="metric"><div class="metric-label">NPV @ 8%</div><div class="metric-value mv-green" id="m-npv">$28,102</div><div class="metric-sub">$'000</div></div>
+      <div class="metric"><div class="metric-label">Min DSCR</div><div class="metric-value mv-amber" id="m-dscr">1.62x</div><div class="metric-sub">Covenant: 1.25x</div></div>
+      <div class="metric"><div class="metric-label">Payback Period</div><div class="metric-value" id="m-payback">11 yrs</div><div class="metric-sub">From COD</div></div>
+    </div>
+    <div class="two-col mb16">
+      <div class="card">
+        <div class="card-hd">Returns by Scenario <div class="card-hd-actions"><div class="scen-tabs" style="margin-bottom:0"><button class="scen-tab active" onclick="setScen('base',this)">Base</button><button class="scen-tab" onclick="setScen('bull',this)">Bull</button><button class="scen-tab" onclick="setScen('bear',this)">Bear</button></div></div></div>
+        <div class="form-grid-2" id="returns-grid">
+          <div class="return-box"><div class="return-label">Unlevered IRR (Pre-Tax)</div><div class="return-val mv-blue" id="r-unlev-pre">12.2%</div></div>
+          <div class="return-box"><div class="return-label">Unlevered IRR (Post-Tax)</div><div class="return-val" id="r-unlev-post">9.4%</div></div>
+          <div class="return-box"><div class="return-label">Levered IRR (Pre-Tax)</div><div class="return-val mv-blue" id="r-lev-pre">12.9%</div></div>
+          <div class="return-box"><div class="return-label">Levered IRR (Post-Tax)</div><div class="return-val mv-green" id="r-lev-post">10.7%</div></div>
+          <div class="return-box"><div class="return-label">Levered MOIC</div><div class="return-val" id="r-moic">5.8x</div></div>
+          <div class="return-box"><div class="return-label">EBITDA Margin (avg)</div><div class="return-val" id="r-ebitda">76.3%</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-hd">Annual Cash Flow ($'000)</div>
+        <div class="chart-wrap" id="cf-chart"></div>
+      </div>
+    </div>
+    <div class="card mb16">
+      <div class="card-hd">Revenue Model — Selected Years ($'000)</div>
+      <div class="model-grid">
+        <table class="model-tbl" id="rev-table">
+          <thead><tr><th>Line Item</th><th>Yr 1 (2030)</th><th>Yr 3</th><th>Yr 5</th><th>Yr 7</th><th>Yr 10</th><th>Yr 15</th><th>Yr 20</th><th>Yr 25</th><th>Yr 35</th></tr></thead>
+          <tbody id="rev-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="two-col mb16">
+      <div class="card">
+        <div class="card-hd">OPEX Schedule — Selected Years ($'000)</div>
+        <table class="model-tbl" id="opex-table">
+          <thead><tr><th>Line Item</th><th>Yr 1</th><th>Yr 5</th><th>Yr 10</th><th>Yr 20</th><th>Yr 35</th></tr></thead>
+          <tbody id="opex-tbody"></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-hd">Debt Schedule & DSCR</div>
+        <table class="model-tbl" id="debt-table">
+          <thead><tr><th>Line Item</th><th>Yr 1</th><th>Yr 5</th><th>Yr 10</th><th>Yr 15</th><th>Yr 20</th></tr></thead>
+          <tbody id="debt-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hd">Sources & Uses at COD ($'000)</div>
+      <div class="two-col">
+        <div>
+          <div class="fin-row"><span class="fin-lbl">Term Loan (CTL/TRABL)</span><span class="fin-val" id="su-loan">27,500</span></div>
+          <div class="fin-row"><span class="fin-lbl">Preferred Equity</span><span class="fin-val">17,132</span></div>
+          <div class="fin-row"><span class="fin-lbl">ITC Transfer Proceeds</span><span class="fin-val pos" id="su-itc">57,018</span></div>
+          <div class="fin-row"><span class="fin-lbl">Sponsor Equity (Nofar)</span><span class="fin-val" id="su-equity">14,782</span></div>
+          <div class="fin-row" style="border-top:2px solid var(--line-light);margin-top:4px"><span class="fin-lbl" style="font-weight:700">Total Sources</span><span class="fin-val" style="font-weight:700" id="su-total">116,432</span></div>
+        </div>
+        <div>
+          <div class="fin-row"><span class="fin-lbl">Total Unlevered CapEx</span><span class="fin-val">110,432</span></div>
+          <div class="fin-row"><span class="fin-lbl">Financing Fees & IDC</span><span class="fin-val">6,000</span></div>
+          <div class="fin-row" style="border-top:2px solid var(--line-light);margin-top:4px"><span class="fin-lbl" style="font-weight:700">Total Uses</span><span class="fin-val" style="font-weight:700">116,432</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn" onclick="go('assumptions',document.querySelectorAll('.nav-item')[1])">← Back</button>
+      <button class="btn btn-primary" onclick="go('engineering',document.querySelectorAll('.nav-item')[3])">Engineering Review →</button>
+    </div>
+  </div>
+
+  <!-- ══ SCREEN 4: ENGINEERING ══ -->
+  <div class="screen" id="s-engineering">
+    <div class="sec-hd mb16"><h2>Engineering & Technical Review</h2><p>Automated review based on Owner's Engineer scope (Nicolas Orduz methodology).</p></div>
+    <div class="metrics" style="grid-template-columns:repeat(3,1fr)">
+      <div class="metric"><div class="metric-label">Portfolio Health Score</div><div class="metric-value mv-amber">74<span style="font-size:13px;color:var(--text3)">/100</span></div><div class="metric-sub">Amber — review required</div></div>
+      <div class="metric"><div class="metric-label">Critical Findings</div><div class="metric-value mv-red">0</div><div class="metric-sub">None identified</div></div>
+      <div class="metric"><div class="metric-label">Major Findings</div><div class="metric-value mv-amber">3</div><div class="metric-sub">Require resolution</div></div>
+    </div>
+    <div class="two-col mb16">
+      <div class="card">
+        <div class="card-hd">PVsyst Energy Model Review</div>
+        <div class="risk-item">
+          <div class="risk-sev"><span class="badge badge-green">Pass</span></div>
+          <div class="risk-body"><div class="risk-title">P50 Yield Benchmark</div><div class="risk-desc">Submitted P50 of 1,710 kWh/kWp validated against EIA irradiance data for Hoke County, NC. Within ±3% of benchmark.</div><div class="risk-action">✓ No action required</div></div>
+        </div>
+        <div class="risk-item">
+          <div class="risk-sev"><span class="badge badge-green">Pass</span></div>
+          <div class="risk-body"><div class="risk-title">Performance Ratio</div><div class="risk-desc">PR of 81.5% is within normal range for fixed-tilt single-axis tracker in SERC. Benchmark: 78–85%.</div><div class="risk-action">✓ No action required</div></div>
+        </div>
+        <div class="risk-item">
+          <div class="risk-sev"><span class="badge badge-amber">Review</span></div>
+          <div class="risk-body"><div class="risk-title">Soiling Loss Assumption</div><div class="risk-desc">PVsyst model applies 1.5% soiling loss. Regional benchmark for NC is 2.0–2.5%. May overstate yield by 0.5–1.0%.</div><div class="risk-impact med">Est. NPV impact: ($380K) if soiling at benchmark level</div><div class="risk-action">→ Request soiling study or apply conservative haircut</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-hd">Interconnection Risk (Duke Energy Carolinas)</div>
+        <div class="risk-item">
+          <div class="risk-sev"><span class="badge badge-green">Pass</span></div>
+          <div class="risk-body"><div class="risk-title">Queue Position & COD Milestone</div><div class="risk-desc">Active queue position confirmed. COD milestone of Q2 2030 consistent with Duke RSC cluster timeline. Security deposit of $1.35M funded.</div><div class="risk-action">✓ Milestones on track</div></div>
+        </div>
+        <div class="risk-item">
+          <div class="risk-sev"><span class="badge badge-amber">Review</span></div>
+          <div class="risk-body"><div class="risk-title">Inverter Model Change Risk</div><div class="risk-desc">EPC switched inverter model from Sungrow SG3125 to SG3600 in March 2026. Duke has not been notified. May trigger re-study.</div><div class="risk-impact med">Est. impact: 4–8 month delay risk; $2–6M revenue delay</div><div class="risk-action">→ File change notification with Duke immediately</div></div>
+        </div>
+        <div class="risk-item">
+          <div class="risk-sev"><span class="badge badge-green">Pass</span></div>
+          <div class="risk-body"><div class="risk-title">Interconnection Agreement</div><div class="risk-desc">IA executed. No outstanding technical conditions. Grid stability studies completed for all four project sites.</div><div class="risk-action">✓ No open items</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="two-col mb16">
+      <div class="card">
+        <div class="card-hd">Equipment Procurement & ITC Safe Harbor</div>
+        <div class="risk-item">
+          <div class="risk-sev"><span class="badge badge-green">Pass</span></div>
+          <div class="risk-body"><div class="risk-title">Safe Harbor Compliance (IRS 5% Test)</div><div class="risk-desc">Module procurement confirmed at $34.4M (31.2% of total EPC). Exceeds IRS 5% threshold. Safe Harbor documentation complete.</div><div class="risk-action">✓ 40% ITC confirmed</div></div>
+        </div>
+        <div class="risk-item">
+          <div class="risk-sev"><span class="badge badge-amber">Review</span></div>
+          <div class="risk-body"><div class="risk-title">GSU Transformer Delivery Risk</div><div class="risk-desc">4 GSU transformers ($4.8M) — lead time 14 months. Current delivery schedule is 2 weeks behind. Risk of 30-day COD delay.</div><div class="risk-impact med">Est. impact: ($210K) revenue if 30-day delay at COD</div><div class="risk-action">→ Confirm expedite option with vendor; add COD buffer</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-hd">EPC Design Compliance</div>
+        <table class="tbl">
+          <thead><tr><th>Study / Document</th><th>Status</th><th>Severity</th></tr></thead>
+          <tbody>
+            <tr><td>Short Circuit Study</td><td><span class="badge badge-green">Complete</span></td><td>—</td></tr>
+            <tr><td>Power Flow Study</td><td><span class="badge badge-green">Complete</span></td><td>—</td></tr>
+            <tr><td>Harmonics Study</td><td><span class="badge badge-green">Complete</span></td><td>—</td></tr>
+            <tr><td>Structural (Tracker Foundations)</td><td><span class="badge badge-green">Complete</span></td><td>—</td></tr>
+            <tr><td>Protection & Control Design</td><td><span class="badge badge-green">Complete</span></td><td>—</td></tr>
+            <tr><td>Inverter Re-Study (SG3600)</td><td><span class="badge badge-red">Pending</span></td><td><span class="badge badge-amber">Major</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn" onclick="go('model',document.querySelectorAll('.nav-item')[2])">← Back</button>
+      <button class="btn btn-primary" onclick="go('chat',document.querySelectorAll('.nav-item')[4])">Open Analyst Chat →</button>
+    </div>
+  </div>
+
+  <!-- ══ SCREEN 5: ANALYST CHAT ══ -->
+  <div class="screen" id="s-chat">
+    <div class="sec-hd mb16"><h2>Analyst Chat Interface</h2><p>Ask SolarLedger to modify any assumption, run scenarios, or recalculate. All changes are logged in the audit trail.</p></div>
+    <div class="two-col">
+      <div class="col-gap">
+        <div class="chat-panel">
+          <div class="chat-suggestions">
+            <div class="suggestion" onclick="sendSugg(this)">Change PPA escalation to 2% starting Year 3</div>
+            <div class="suggestion" onclick="sendSugg(this)">Run bear case: merchant price -15%</div>
+            <div class="suggestion" onclick="sendSugg(this)">What DSCR if interest rate rises to 9.5%?</div>
+            <div class="suggestion" onclick="sendSugg(this)">Increase O&M by 20% — all NC assets</div>
+          </div>
+          <div class="chat-messages" id="chat-msgs">
+            <div class="msg ai">
+              <div class="msg-avatar ai">SL</div>
+              <div class="msg-bubble">Model loaded: <strong>Yarotek Portfolio</strong> (82 MWdc, Duke Energy Carolinas). All 8 documents parsed. Base case IRR is 12.9% levered pre-tax. What would you like to adjust?</div>
+            </div>
+          </div>
+          <div class="chat-input-area">
+            <textarea class="chat-input" id="chat-in" placeholder="e.g. Change merchant price to $70/MWh post-PPA..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}"></textarea>
+            <button class="btn btn-primary btn-sm" onclick="sendChat()">Send</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-hd">Audit Trail</div>
+          <div id="audit-trail">
+            <div class="audit-item"><span class="audit-ts">AI · 14:02</span><div><div><span class="audit-field">Model initialized</span> — 8 documents parsed, 47 assumptions extracted</div><div class="audit-by">Source: AI extraction</div></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-hd">Live Model State</div>
+        <table class="tbl" id="live-state-tbl">
+          <thead><tr><th>Assumption</th><th>Current Value</th><th>Source</th></tr></thead>
+          <tbody>
+            <tr><td>PPA Price</td><td class="num" id="ls-ppa">$59.00/MWh</td><td><span class="badge badge-blue">Doc</span></td></tr>
+            <tr><td>PPA Escalation</td><td class="num">0.0%/yr</td><td><span class="badge badge-blue">Doc</span></td></tr>
+            <tr><td>Merchant Price</td><td class="num" id="ls-merch">$65.00/MWh</td><td><span class="badge badge-amber">Flagged</span></td></tr>
+            <tr><td>Annual Yield</td><td class="num">1,710 kWh/kWp</td><td><span class="badge badge-blue">Doc</span></td></tr>
+            <tr><td>Degradation</td><td class="num">0.40%/yr</td><td><span class="badge badge-blue">Doc</span></td></tr>
+            <tr><td>Total CapEx</td><td class="num">$110,432K</td><td><span class="badge badge-blue">Doc</span></td></tr>
+            <tr><td>Interest Rate</td><td class="num">SOFR+2.50%</td><td><span class="badge badge-blue">Doc</span></td></tr>
+            <tr><td>Levered IRR</td><td class="num pos bold" id="ls-irr">12.9%</td><td><span class="badge badge-teal">Calc</span></td></tr>
+            <tr><td>DSCR (min)</td><td class="num bold" id="ls-dscr">1.62x</td><td><span class="badge badge-teal">Calc</span></td></tr>
+            <tr><td>NPV @ 8%</td><td class="num pos bold" id="ls-npv">$28,102K</td><td><span class="badge badge-teal">Calc</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn" onclick="go('engineering',document.querySelectorAll('.nav-item')[3])">← Back</button>
+      <button class="btn btn-primary" onclick="go('memo',document.querySelectorAll('.nav-item')[5])">Generate Investment Memo →</button>
+    </div>
+  </div>
+
+  <!-- ══ SCREEN 6: MEMO ══ -->
+  <div class="screen" id="s-memo">
+    <div class="sec-hd mb16"><h2>Investment Memo — Yarotek Portfolio</h2><p>Auto-generated from final model state. Ready to share with investment committee.</p></div>
+    <div class="memo-score">
+      <div class="score-ring"><div class="score-n">74</div><div class="score-d">/100</div></div>
+      <div class="score-txt">
+        <h3>Overall Deal Score — Conditional Buy</h3>
+        <p>Portfolio trades at a discount to DCF value. Three medium-severity engineering flags require resolution or price adjustment before close. Recommended bid: <strong>$96.5M</strong> (12.5% below asking).</p>
+      </div>
+    </div>
+    <div class="memo-fin-grid">
+      <div class="card"><div class="card-hd">Financial Summary</div>
+        <div class="fin-row"><span class="fin-lbl">Asking Price</span><span class="fin-val">$110,000K</span></div>
+        <div class="fin-row"><span class="fin-lbl">DCF Implied Value</span><span class="fin-val pos">$126,500K</span></div>
+        <div class="fin-row"><span class="fin-lbl">Recommended Bid (risk-adj.)</span><span class="fin-val pos">$96,250K</span></div>
+        <div class="fin-row"><span class="fin-lbl">Levered IRR (base, at bid)</span><span class="fin-val pos" id="memo-irr">12.9%</span></div>
+        <div class="fin-row"><span class="fin-lbl">NPV @ 8% Discount Rate</span><span class="fin-val pos">$28,102K</span></div>
+        <div class="fin-row"><span class="fin-lbl">Min DSCR</span><span class="fin-val">1.62x</span></div>
+        <div class="fin-row"><span class="fin-lbl">Payback Period</span><span class="fin-val">11 years</span></div>
+      </div>
+      <div class="card"><div class="card-hd">Risk Summary</div>
+        <div class="fin-row"><span class="fin-lbl">Total Identified Risk (NPV)</span><span class="fin-val warn">($990K)</span></div>
+        <div class="fin-row"><span class="fin-lbl">Critical Findings</span><span class="fin-val">0</span></div>
+        <div class="fin-row"><span class="fin-lbl">Major Findings</span><span class="fin-val warn">3</span></div>
+        <div class="fin-row"><span class="fin-lbl">PPA Expiration Risk</span><span class="fin-val warn">Year 5</span></div>
+        <div class="fin-row"><span class="fin-lbl">Inverter Re-Study Risk</span><span class="fin-val warn">Pending</span></div>
+        <div class="fin-row"><span class="fin-lbl">ITC Recapture Risk</span><span class="fin-val pos">None</span></div>
+        <div class="fin-row"><span class="fin-lbl">Safe Harbor Status</span><span class="fin-val pos">Confirmed</span></div>
+      </div>
+    </div>
+    <div class="card mb16">
+      <div class="card-hd">Investment Thesis</div>
+      <div class="memo-block"><div class="memo-lbl">Executive Summary</div><div class="memo-txt">The Yarotek Portfolio is an 82 MWdc utility-scale solar asset in Hoke and Robeson Counties, North Carolina, interconnected to Duke Energy Carolinas. At the asking price of $110M, the asset trades at a 13% discount to our base-case DCF value of $126.5M. The project has a confirmed 5-year PPA with Duke at $59/MWh and a 40% ITC confirmed via Safe Harbor. Three medium-severity engineering issues — soiling assumptions, an inverter change notification to Duke, and transformer delivery timing — require resolution before close.</div></div>
+      <div class="memo-block"><div class="memo-lbl">Technical Assessment</div><div class="memo-txt">PVsyst P50 of 1,710 kWh/kWp validated against EIA benchmarks for the project location. Performance ratio of 81.5% is within normal range for fixed-tilt single-axis tracker in SERC. The inverter model change from SG3125 to SG3600 has not been disclosed to Duke Energy — this must be filed immediately to avoid triggering a re-study that could delay COD by 4–8 months. GSU transformer delivery is 2 weeks behind schedule; recommend confirming expedite option before close.</div></div>
+      <div class="memo-block"><div class="memo-lbl">Financial Assessment</div><div class="memo-txt">Base-case levered IRR of 12.9% pre-tax exceeds our 10.0% hurdle rate by 290 bps. The PPA expires in Year 5 (2034), after which revenue shifts to merchant/Aurora pricing at $65/MWh escalating at 1.5%/yr. This transition is the primary revenue risk. DSCR floors at 1.62x in Year 1, well above the 1.25x covenant. The 40% ITC generates approximately $57M in tax credit transfer proceeds at COD, significantly reducing required equity capital.</div></div>
+      <div class="memo-block" style="border:none"><div class="memo-lbl">Recommendation</div><div class="memo-txt">Proceed with a bid of <strong>$96.25M</strong> — 12.5% below asking price — contingent on: (1) EPC filing inverter change notification with Duke Energy before signing; (2) GSU transformer delivery confirmation by June 2026; (3) seller providing a PPA renewal right or right-of-first-refusal for the post-2034 merchant period. At the recommended bid price, levered IRR improves to approximately 14.2%.</div></div>
+    </div>
+    <div class="actions">
+      <button class="btn" onclick="go('chat',document.querySelectorAll('.nav-item')[4])">← Back</button>
+      <button class="btn">Export Excel Model</button>
+      <button class="btn">Export PDF Memo</button>
+      <button class="btn btn-primary">Share with Committee →</button>
+    </div>
+  </div>
+
+  <!-- ══ SCREEN 7: PORTFOLIO SUMMARY ══ -->
+  <div class="screen" id="s-summary">
+    <div class="sec-hd mb16"><h2>Portfolio Summary</h2><p>Side-by-side asset returns and risk flags from the institutional engine.</p></div>
+    <div class="card">
+      <div class="card-hd">Asset Comparison</div>
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>Asset Name</th>
+            <th>MWdc</th>
+            <th>IRR</th>
+            <th>NPV ($)</th>
+            <th>Min DSCR</th>
+            <th>CapEx ($)</th>
+            <th>PPA Tenor</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="portfolio-summary-body"></tbody>
+      </table>
+    </div>
+    <div class="metrics" style="margin-top:16px;grid-template-columns:repeat(3,1fr)">
+      <div class="metric"><div class="metric-label">Blended Portfolio IRR</div><div class="metric-value mv-blue" id="ps-irr">—</div></div>
+      <div class="metric"><div class="metric-label">Blended Portfolio NPV</div><div class="metric-value mv-green" id="ps-npv">—</div></div>
+      <div class="metric"><div class="metric-label">Portfolio Total CapEx</div><div class="metric-value" id="ps-capex">—</div></div>
+    </div>
+    <div class="actions">
+      <button class="btn" onclick="go('memo',document.querySelectorAll('.nav-item')[5])">← Back</button>
+    </div>
+  </div>
+
+  </div><!-- /content -->
+</main>
+</div><!-- /app -->
+
+<script>
+(function () {
+  "use strict";
+
+  function toNumber(value, fallback) {
+    var n = Number(value);
+    return Number.isFinite(n) ? n : fallback;
+  }
+
+  function npvCalc(rate, cashFlows) {
+    var total = 0;
+    for (var i = 0; i < cashFlows.length; i += 1) {
+      total += cashFlows[i] / Math.pow(1 + rate, i);
+    }
+    return total;
+  }
+
+  function calcIRR(cashFlows) {
+    var guess = 0.15;
+    for (var iter = 0; iter < 100; iter += 1) {
+      var npvVal = npvCalc(guess, cashFlows);
+      var npvDerivative = 0;
+      for (var i = 1; i < cashFlows.length; i += 1) {
+        npvDerivative += -i * cashFlows[i] / Math.pow(1 + guess, i + 1);
+      }
+      if (Math.abs(npvDerivative) < 1e-12) break;
+      var newGuess = guess - npvVal / npvDerivative;
+      if (!Number.isFinite(newGuess) || newGuess <= -0.9999) break;
+      if (Math.abs(newGuess - guess) < 0.0000001) {
+        guess = newGuess;
+        break;
+      }
+      guess = newGuess;
+    }
+    return guess;
+  }
+
+  function calcAsset(asset) {
+    var inputs = asset.inputs || asset;
+    var assetLife = Math.max(1, Math.floor(toNumber(inputs.assetLife, 35)));
+    var loanTenor = Math.max(0, Math.floor(toNumber(inputs.loanTenor, 0)));
+
+    var yearly = [];
+    var debtOutstanding = [];
+    var leveredCashFlows = [];
+    var cfadsForNpv = [];
+
+    var itcProceeds = toNumber(inputs.fmv, 0) * toNumber(inputs.itcRate, 0);
+    var sponsorEquity =
+      toNumber(inputs.totalUnleveredCapex, 0) +
+      toNumber(inputs.financingIDC, 0) -
+      toNumber(inputs.loanAmount, 0) -
+      itcProceeds -
+      toNumber(inputs.preferredEquity, 0);
+
+    leveredCashFlows.push(-sponsorEquity);
+
+    for (var year = 1; year <= assetLife; year += 1) {
+      // GENERATION
+      var degradationFactor = Math.pow(1 - toNumber(inputs.annualDegradation, 0), year - 1);
+      var grossMWh =
+        toNumber(inputs.mwdc, 0) *
+        toNumber(inputs.yieldKwhKwp, 0) *
+        toNumber(inputs.availabilityFactor, 0) *
+        degradationFactor;
+      var netMWh = grossMWh * (1 - toNumber(inputs.curtailment, 0));
+
+      // REVENUE
+      var ppaPrice = null;
+      var merchantPrice = null;
+      var revenue = 0;
+      if (inputs.revenueMode === "toll") {
+        var tollBase = (toNumber(inputs.mwac, 0) * toNumber(inputs.tollPriceKwMonthYr1, 0) * 12000) / 1000;
+        revenue = tollBase * Math.pow(1 + toNumber(inputs.tollEscalation, 0), year - 1);
+      } else {
+        if (year <= toNumber(inputs.ppaTenor, 0)) {
+          ppaPrice = toNumber(inputs.ppaPriceYr1, 0) * Math.pow(1 + toNumber(inputs.ppaEscalation, 0), year - 1);
+          revenue = netMWh * ppaPrice / 1000;
+        } else {
+          var yearsPostPPA = year - toNumber(inputs.ppaTenor, 0) - 1;
+          merchantPrice = toNumber(inputs.merchantPriceYr1, 0) * Math.pow(1 + toNumber(inputs.merchantEscalation, 0), yearsPostPPA);
+          revenue = netMWh * merchantPrice / 1000;
+        }
+      }
+
+      // OPEX
+      var opexKeys = [
+        "pvo",
+        "utilityOM",
+        "parasiticLoad",
+        "uncoveredOM",
+        "telecom",
+        "insurance",
+        "assetMgmt",
+        "auditTax",
+        "lcFees",
+        "otherOpex",
+        "operatingLease"
+      ];
+      var opexByLine = {};
+      var totalOpex = 0;
+
+      for (var i = 0; i < opexKeys.length; i += 1) {
+        var key = opexKeys[i];
+        var yr1Cost = toNumber((inputs.opex || {})[key], 0);
+        var escalationRate = toNumber((inputs.opexEscalation || {})[key], 0);
+        var lineValue = yr1Cost * Math.pow(1 + escalationRate, year - 1);
+        opexByLine[key] = lineValue;
+        totalOpex += lineValue;
+      }
+
+      var reserve = inputs.inverterReserve || {};
+      var inverterReserveCost = 0;
+      if (
+        year >= toNumber(reserve.startYear, 0) &&
+        year <= toNumber(reserve.endYear, 0)
+      ) {
+        inverterReserveCost = toNumber(reserve.annualCost, 0);
+      }
+      opexByLine.inverterReserve = inverterReserveCost;
+      totalOpex += inverterReserveCost;
+
+      // EBITDA
+      var ebitda = revenue - totalOpex;
+      var ebitdaMargin = revenue !== 0 ? ebitda / revenue : null;
+
+      // DEBT SCHEDULE
+      var beginningBalance = year === 1
+        ? toNumber(inputs.loanAmount, 0)
+        : debtOutstanding[year - 2] - yearly[year - 2].amortization;
+      if (beginningBalance < 0) beginningBalance = 0;
+
+      var amortization = year <= loanTenor
+        ? toNumber(inputs.loanAmount, 0) / loanTenor
+        : 0;
+      amortization = Math.min(amortization, beginningBalance);
+
+      var interest = beginningBalance * toNumber(inputs.interestRate, 0);
+      var totalDebtService = amortization + interest;
+      var cfads = ebitda - totalDebtService;
+      var dscr = totalDebtService > 0 ? ebitda / totalDebtService : null;
+
+      debtOutstanding.push(beginningBalance);
+      cfadsForNpv.push(cfads);
+      leveredCashFlows.push(cfads);
+
+      yearly.push({
+        year: year,
+        degradationFactor: degradationFactor,
+        grossMWh: grossMWh,
+        netMWh: netMWh,
+        ppaPrice: ppaPrice,
+        merchantPrice: merchantPrice,
+        revenue: revenue,
+        opexByLine: opexByLine,
+        totalOpex: totalOpex,
+        ebitda: ebitda,
+        ebitdaMargin: ebitdaMargin,
+        beginningBalance: beginningBalance,
+        amortization: amortization,
+        interest: interest,
+        totalDebtService: totalDebtService,
+        cfads: cfads,
+        dscr: dscr
+      });
+    }
+
+    // IRR
+    var irr = calcIRR(leveredCashFlows);
+
+    // NPV
+    var discountRate = toNumber(inputs.discountRate, 0);
+    var npv = 0;
+    for (var n = 1; n <= assetLife; n += 1) {
+      npv += cfadsForNpv[n - 1] / Math.pow(1 + discountRate, n);
+    }
+
+    // LLCR at year 1
+    var npvCfadsLoanLife = 0;
+    var loanLifeYears = Math.min(loanTenor, assetLife);
+    for (var l = 1; l <= loanLifeYears; l += 1) {
+      npvCfadsLoanLife += cfadsForNpv[l - 1] / Math.pow(1 + discountRate, l);
+    }
+    var outstandingDebt = toNumber(inputs.loanAmount, 0);
+    var llcr = outstandingDebt > 0 ? npvCfadsLoanLife / outstandingDebt : null;
+
+    // MOIC
+    var totalEquityReturned = 0;
+    for (var c = 1; c < leveredCashFlows.length; c += 1) {
+      if (leveredCashFlows[c] > 0) totalEquityReturned += leveredCashFlows[c];
+    }
+    var moic = sponsorEquity !== 0 ? totalEquityReturned / sponsorEquity : null;
+
+    // PAYBACK
+    var cumulativeCfads = 0;
+    var paybackYear = null;
+    for (var p = 0; p < cfadsForNpv.length; p += 1) {
+      cumulativeCfads += cfadsForNpv[p];
+      if (paybackYear === null && cumulativeCfads > sponsorEquity) {
+        paybackYear = p + 1;
+      }
+    }
+
+    // MIN DSCR
+    var minDscr = null;
+    for (var d = 0; d < yearly.length; d += 1) {
+      var y = yearly[d];
+      if (y.beginningBalance > 0 && y.dscr !== null) {
+        minDscr = minDscr === null ? y.dscr : Math.min(minDscr, y.dscr);
+      }
+    }
+
+    return {
+      name: asset.name || "asset",
+      inputs: inputs,
+      itcProceeds: itcProceeds,
+      sponsorEquity: sponsorEquity,
+      leveredCashFlows: leveredCashFlows,
+      yearly: yearly,
+      metrics: {
+        irr: irr,
+        npv: npv,
+        llcr: llcr,
+        moic: moic,
+        paybackYear: paybackYear,
+        minDscr: minDscr
+      }
+    };
+  }
+
+  var assets = {
+    yarotek: {
+      name: "Yarotek Portfolio",
+      type: "Utility-Scale Development",
+      market: "Duke NC",
+      badgeColor: "blue",
+      inputs: {
+        mwdc: 82,
+        yieldKwhKwp: 1710,
+        dcAcRatio: 1.43,
+        availabilityFactor: 0.985,
+        annualDegradation: 0.004,
+        curtailment: 0.02,
+        assetLife: 35,
+        codYear: 2030,
+
+        ppaPriceYr1: 59,
+        ppaEscalation: 0.0,
+        ppaTenor: 5,
+        merchantPriceYr1: 65,
+        merchantEscalation: 0.015,
+
+        opex: {
+          pvo: 479,
+          utilityOM: 68,
+          parasiticLoad: 60,
+          uncoveredOM: 70,
+          telecom: 34,
+          insurance: 321,
+          assetMgmt: 70,
+          auditTax: 19,
+          lcFees: 113,
+          otherOpex: 117,
+          operatingLease: 582
+        },
+        opexEscalation: {
+          pvo: 0.02,
+          utilityOM: 0.0,
+          parasiticLoad: 0.01,
+          uncoveredOM: 0.02,
+          telecom: 0.02,
+          insurance: 0.0,
+          assetMgmt: 0.02,
+          auditTax: 0.02,
+          lcFees: 0.0,
+          otherOpex: 0.0,
+          operatingLease: 0.02
+        },
+        inverterReserve: {
+          startYear: 16,
+          endYear: 20,
+          annualCost: 250
+        },
+
+        totalUnleveredCapex: 110432,
+        financingIDC: 6000,
+        loanAmount: 27500,
+        interestRate: 0.085,
+        loanTenor: 20,
+        itcRate: 0.40,
+        fmv: 142545,
+        preferredEquity: 17132,
+        discountRate: 0.08
+      }
+    },
+    dgbess: {
+      name: "DG BESS NY",
+      type: "Battery Storage",
+      market: "NYISO",
+      badgeColor: "teal",
+      inputs: {
+        mwdc: 0,
+        mwac: 5,
+        mwh: 20,
+        yieldKwhKwp: 0,
+        dcAcRatio: 1,
+        availabilityFactor: 1,
+        annualDegradation: 0,
+        curtailment: 0,
+        assetLife: 30,
+        codYear: 2029,
+        revenueMode: "toll",
+        tollPriceKwMonthYr1: 12,
+        tollEscalation: 0.015,
+        ppaPriceYr1: 0,
+        ppaEscalation: 0,
+        ppaTenor: 15,
+        merchantPriceYr1: 0,
+        merchantEscalation: 0,
+        opex: {
+          pvo: 20,
+          utilityOM: 0,
+          parasiticLoad: 0,
+          uncoveredOM: 12,
+          telecom: 6,
+          insurance: 30,
+          assetMgmt: 22,
+          auditTax: 4,
+          lcFees: 0,
+          otherOpex: 8,
+          operatingLease: 0
+        },
+        opexEscalation: {
+          pvo: 0.02,
+          utilityOM: 0.02,
+          parasiticLoad: 0.02,
+          uncoveredOM: 0.02,
+          telecom: 0.02,
+          insurance: 0.03,
+          assetMgmt: 0.02,
+          auditTax: 0.02,
+          lcFees: 0.02,
+          otherOpex: 0.02,
+          operatingLease: 0.02
+        },
+        inverterReserve: { startYear: 1, endYear: 0, annualCost: 0 },
+        totalUnleveredCapex: 11148,
+        financingIDC: 0,
+        loanAmount: 4470,
+        interestRate: 0.105,
+        loanTenor: 7,
+        itcRate: 0.40,
+        fmv: 13500,
+        preferredEquity: 1885,
+        discountRate: 0.08
+      }
+    },
+    foley: {
+      name: "Foley (Alabama)",
+      type: "Operating Asset Acquisition",
+      market: "Alabama",
+      badgeColor: "amber",
+      inputs: {
+        mwdc: 106.1,
+        yieldKwhKwp: 1906,
+        dcAcRatio: 1.3,
+        availabilityFactor: 0.98,
+        annualDegradation: 0.0045,
+        curtailment: 0,
+        assetLife: 40,
+        codYear: 2026,
+        ppaPriceYr1: 50,
+        ppaEscalation: 0,
+        ppaTenor: 17,
+        merchantPriceYr1: 45,
+        merchantEscalation: 0.02,
+        opex: {
+          pvo: 583,
+          utilityOM: 0,
+          parasiticLoad: 77,
+          uncoveredOM: 85,
+          telecom: 44,
+          insurance: 415,
+          assetMgmt: 85,
+          auditTax: 24,
+          lcFees: 96,
+          otherOpex: 50,
+          operatingLease: 0
+        },
+        opexEscalation: {
+          pvo: 0.02,
+          utilityOM: 0.02,
+          parasiticLoad: 0.02,
+          uncoveredOM: 0.02,
+          telecom: 0.02,
+          insurance: 0.03,
+          assetMgmt: 0.02,
+          auditTax: 0.02,
+          lcFees: 0.02,
+          otherOpex: 0.02,
+          operatingLease: 0.02
+        },
+        inverterReserve: { startYear: 1, endYear: 0, annualCost: 0 },
+        totalUnleveredCapex: 160734,
+        financingIDC: 7036,
+        loanAmount: 85000,
+        interestRate: 0.075,
+        loanTenor: 20,
+        itcRate: 0,
+        fmv: 206690,
+        preferredEquity: 0,
+        discountRate: 0.08
+      }
+    },
+    bsu: {
+      name: "BSU Operating Portfolio",
+      type: "C&I Operating Portfolio",
+      market: "Northeast US",
+      badgeColor: "green",
+      inputs: {
+        mwdc: 14,
+        yieldKwhKwp: 1450,
+        dcAcRatio: 1.15,
+        availabilityFactor: 0.99,
+        annualDegradation: 0.005,
+        curtailment: 0,
+        assetLife: 30,
+        codYear: 2023,
+        ppaPriceYr1: 172,
+        ppaEscalation: 0.04,
+        ppaTenor: 25,
+        merchantPriceYr1: 120,
+        merchantEscalation: 0.02,
+        opex: {
+          pvo: 81,
+          utilityOM: 0,
+          parasiticLoad: 0,
+          uncoveredOM: 11,
+          telecom: 8,
+          insurance: 42,
+          assetMgmt: 34,
+          auditTax: 5,
+          lcFees: 0,
+          otherOpex: 12,
+          operatingLease: 48
+        },
+        opexEscalation: {
+          pvo: 0.02,
+          utilityOM: 0.02,
+          parasiticLoad: 0.02,
+          uncoveredOM: 0.02,
+          telecom: 0.02,
+          insurance: 0.05,
+          assetMgmt: 0.02,
+          auditTax: 0.02,
+          lcFees: 0.02,
+          otherOpex: 0.02,
+          operatingLease: 0.04
+        },
+        inverterReserve: { startYear: 1, endYear: 0, annualCost: 0 },
+        totalUnleveredCapex: 28000,
+        financingIDC: 0,
+        loanAmount: 12000,
+        interestRate: 0.065,
+        loanTenor: 15,
+        itcRate: 0.26,
+        fmv: 35000,
+        preferredEquity: 0,
+        discountRate: 0.08
+      }
+    }
+  };
+
+  var activeAsset = "yarotek";
+
+  window.SolarLedger = {
+    assets: assets,
+    calcAsset: calcAsset,
+    activeAsset: activeAsset
+  };
+})();
+
+</script>
+<script>
+const SCREENS = ['upload','assumptions','model','engineering','chat','memo','summary'];
+const TITLES = [
+  ['Upload Data Room','Step 1 of 7 — Add all deal documents to begin AI extraction'],
+  ['Review Assumptions','Step 2 of 7 — Verify and override AI-extracted values'],
+  ['Financial Model','Step 3 of 7 — 35-year projection with live recalculation'],
+  ['Engineering Review','Step 4 of 7 — Owner\'s Engineer technical due diligence'],
+  ['Analyst Chat','Step 5 of 7 — Natural-language model adjustments'],
+  ['Investment Memo','Step 6 of 7 — Committee-ready deal summary'],
+  ['Portfolio Summary','Step 7 of 7 — Side-by-side asset comparison'],
+];
+const CTA = ['Run AI Analysis →','Build Financial Model →','Engineering Review →','Open Analyst Chat →','Generate Memo →','Portfolio Summary →','Export Package'];
+const TARGET_IRR = 0.10;
+const engine = window.SolarLedger || {};
+const assetEntries = Object.entries(engine.assets);
+let activeAssetKey = engine.activeAsset || assetEntries[0][0];
+let activeAsset = engine.assets[activeAssetKey];
+let latestResult = null;
+
+function parseNum(raw){ return Number(String(raw).replace(/,/g,'').replace('%','').trim()) || 0; }
+function parsePct(raw){ const s = String(raw).trim(); return s.includes('%') ? parseNum(s)/100 : parseNum(s); }
+function fmtPct(n, d=1){ return n == null ? '—' : (n*100).toFixed(d)+'%'; }
+function fmtX(n){ return n == null ? '—' : n.toFixed(2)+'x'; }
+function setTxt(id, val){ const el=document.getElementById(id); if(el) el.textContent=val; }
+function setInput(id, val){ const el=document.getElementById(id); if(el) el.value=val; }
+
+function syncAssetFromInputs() {
+  const i = activeAsset.inputs;
+  i.mwdc = parseNum(document.getElementById('a-mwdc')?.value || i.mwdc);
+  i.yieldKwhKwp = parseNum(document.getElementById('a-yield')?.value || i.yieldKwhKwp);
+  i.availabilityFactor = parsePct(document.getElementById('a-avail')?.value || i.availabilityFactor);
+  i.annualDegradation = parsePct(document.getElementById('a-degrad')?.value || i.annualDegradation);
+  i.assetLife = parseNum(document.getElementById('a-life')?.value || i.assetLife);
+  i.ppaPriceYr1 = parseNum(document.getElementById('a-ppa')?.value || i.ppaPriceYr1);
+  i.ppaEscalation = parsePct(document.getElementById('a-ppaesc')?.value || i.ppaEscalation);
+  i.ppaTenor = parseNum(document.getElementById('a-ppaten')?.value || i.ppaTenor);
+  i.merchantPriceYr1 = parseNum(document.getElementById('a-merch')?.value || i.merchantPriceYr1);
+  i.merchantEscalation = parsePct(document.getElementById('a-merchesc')?.value || i.merchantEscalation);
+  i.curtailment = parsePct(document.getElementById('a-curtail')?.value || i.curtailment);
+  i.loanAmount = parseNum(document.getElementById('a-loan')?.value || i.loanAmount);
+  i.itcRate = parsePct(document.getElementById('a-itc')?.value || i.itcRate);
+  i.fmv = parseNum(document.getElementById('a-fmv')?.value || i.fmv);
+}
+
+function hydrateInputsFromAsset(asset) {
+  const i = asset.inputs;
+  setInput('a-mwdc', i.mwdc || 0);
+  setInput('a-yield', i.yieldKwhKwp || 0);
+  setInput('a-avail', ((i.availabilityFactor || 0) * 100).toFixed(1) + '%');
+  setInput('a-degrad', ((i.annualDegradation || 0) * 100).toFixed(2) + '%');
+  setInput('a-life', i.assetLife || 0);
+  setInput('a-ppa', (i.ppaPriceYr1 || 0).toFixed(2));
+  setInput('a-ppaesc', ((i.ppaEscalation || 0) * 100).toFixed(2) + '%');
+  setInput('a-ppaten', i.ppaTenor || 0);
+  setInput('a-merch', (i.merchantPriceYr1 || 0).toFixed(2));
+  setInput('a-merchesc', ((i.merchantEscalation || 0) * 100).toFixed(2) + '%');
+  setInput('a-curtail', ((i.curtailment || 0) * 100).toFixed(2) + '%');
+  setInput('a-loan', Math.round(i.loanAmount || 0).toLocaleString());
+  setInput('a-itc', ((i.itcRate || 0) * 100).toFixed(1) + '%');
+  setInput('a-fmv', Math.round(i.fmv || 0).toLocaleString());
+}
+
+function refreshDealCard() {
+  const i = activeAsset.inputs;
+  const cap = activeAsset.badgeColor || 'blue';
+  const badgeMap = {
+    blue: ['badge-blue','Development'],
+    teal: ['badge-teal','BESS'],
+    amber: ['badge-amber','Acquisition'],
+    green: ['badge-green','Operating']
+  };
+  const info = badgeMap[cap] || badgeMap.blue;
+  const mwLabel = i.mwdc > 0 ? `${i.mwdc} MWdc` : `${i.mwac || 0} MW`;
+  setTxt('deal-card-name', activeAsset.name);
+  setTxt('deal-card-meta', `${mwLabel} · ${activeAsset.market || 'N/A'} · ${activeAsset.type || 'Asset'}`);
+  const badge = document.getElementById('deal-card-badge');
+  if (badge) { badge.className = `badge ${info[0]}`; badge.textContent = info[1]; }
+}
+
+function buildRevTable(rows) {
+  const idx = [0,2,4,6,9,14,19,24,Math.min(rows.length-1,34)];
+  const ppaTenor = activeAsset.inputs.ppaTenor || 0;
+  const tbody = document.getElementById('rev-tbody');
+  if (!tbody) return;
+  const out = [
+    { l:'Net Generation (MWh)', v: idx.map(i=>Math.round((rows[i]||{}).netMWh||0).toLocaleString()) },
+    { l:'Revenue ($\'000)', v: idx.map(i=>'$'+Math.round((rows[i]||{}).revenue||0).toLocaleString()), c:'total' },
+    { l:'Contracted Revenue ($\'000)', v: idx.map(i=>(i+1)<=ppaTenor?'$'+Math.round((rows[i]||{}).revenue||0).toLocaleString():'-') },
+    { l:'Merchant/Toll Revenue ($\'000)', v: idx.map(i=>(i+1)>ppaTenor || activeAsset.inputs.revenueMode==='toll'?'$'+Math.round((rows[i]||{}).revenue||0).toLocaleString():'-') },
+    { l:'(-) Total OPEX ($\'000)', v: idx.map(i=>'('+Math.round((rows[i]||{}).totalOpex||0).toLocaleString()+')'), n:true },
+    { l:'EBITDA ($\'000)', v: idx.map(i=>'$'+Math.round((rows[i]||{}).ebitda||0).toLocaleString()), c:'sub-total' },
+    { l:'EBITDA Margin', v: idx.map(i=> (rows[i] && rows[i].ebitdaMargin!=null) ? (rows[i].ebitdaMargin*100).toFixed(1)+'%' : '—') }
+  ];
+  tbody.innerHTML = out.map(r=>`<tr class="${r.c||''}"><td>${r.l}</td>${r.v.map(v=>`<td class="val ${r.n?'neg':''}">${v}</td>`).join('')}</tr>`).join('');
+}
+
+function buildOpexTable(rows) {
+  const idx = [0,4,9,19,Math.min(rows.length-1,34)];
+  const labels = {
+    pvo:'PV O&M',utilityOM:'Utility O&M',parasiticLoad:'Parasitic Load',uncoveredOM:'Uncovered O&M',
+    telecom:'Telecom',insurance:'Insurance',assetMgmt:'Asset Mgmt',auditTax:'Audit & Tax',lcFees:'LC Fees',
+    otherOpex:'Other OPEX',operatingLease:'Operating Lease',inverterReserve:'Inverter Reserve'
+  };
+  const keys = Object.keys(labels);
+  const tbody = document.getElementById('opex-tbody');
+  if (!tbody) return;
+  const lines = keys.map(k=>`<tr><td>${labels[k]}</td>${idx.map(i=>`<td class="val">${Math.round(((rows[i]||{}).opexByLine||{})[k]||0).toLocaleString()}</td>`).join('')}</tr>`);
+  lines.push(`<tr class="total"><td>TOTAL OPEX</td>${idx.map(i=>`<td class="val">(${Math.round((rows[i]||{}).totalOpex||0).toLocaleString()})</td>`).join('')}</tr>`);
+  tbody.innerHTML = lines.join('');
+}
+
+function buildDebtTable(rows) {
+  const idx = [0,4,9,14,19];
+  const y = i => rows[i] || {};
+  const body = document.getElementById('debt-tbody');
+  if (!body) return;
+  const r = [
+    ['Beginning Balance ($\'000)', idx.map(i=>Math.round(y(i).beginningBalance||0).toLocaleString())],
+    ['(-) Amortization', idx.map(i=>Math.round(y(i).amortization||0).toLocaleString())],
+    ['Interest Expense', idx.map(i=>'('+Math.round(y(i).interest||0).toLocaleString()+')')],
+    ['Total Debt Service', idx.map(i=>'('+Math.round(y(i).totalDebtService||0).toLocaleString()+')')],
+    ['EBITDA ($\'000)', idx.map(i=>'$'+Math.round(y(i).ebitda||0).toLocaleString())],
+    ['CFADS ($\'000)', idx.map(i=>'$'+Math.round(y(i).cfads||0).toLocaleString())],
+    ['DSCR', idx.map(i=>y(i).dscr!=null?y(i).dscr.toFixed(2)+'x':'n/a')]
+  ];
+  body.innerHTML = r.map((x,j)=>`<tr class="${j===3||j===5?'sub-total':j===6?'total':''}"><td>${x[0]}</td>${x[1].map(v=>`<td class="val">${v}</td>`).join('')}</tr>`).join('');
+}
+
+function buildChart(rows) {
+  const c = document.getElementById('cf-chart');
+  if (!c) return;
+  c.innerHTML = '';
+  const vals = rows.map(r=>r.cfads);
+  const max = Math.max(...vals.map(v=>Math.abs(v)),1);
+  vals.forEach((v,i)=>{
+    const bar=document.createElement('div');
+    bar.className='chart-bar';
+    bar.style.height=`${Math.max((Math.abs(v)/max)*160,2)}px`;
+    bar.style.background = v>=0 ? '#1565C7' : '#C62828';
+    bar.style.opacity = 0.45 + (i/rows.length)*0.5;
+    if(i%5===0 || i===rows.length-1){ const l=document.createElement('div'); l.className='chart-bar-label'; l.textContent='Y'+(i+1); bar.appendChild(l); }
+    c.appendChild(bar);
+  });
+}
+
+function buildPortfolioSummary() {
+  const body = document.getElementById('portfolio-summary-body');
+  if (!body) return;
+  let blendedCapex = 0, blendedNpv = 0, blendedIrrWeighted = 0, totalWeight = 0;
+  const rows = Object.entries(engine.assets).map(([k,a])=>{
+    const r = engine.calcAsset(a);
+    const i = a.inputs;
+    const capex = (i.totalUnleveredCapex||0) + (i.financingIDC||0);
+    blendedCapex += capex;
+    blendedNpv += r.metrics.npv || 0;
+    blendedIrrWeighted += (r.metrics.irr || 0) * capex;
+    totalWeight += capex;
+    const irr = r.metrics.irr || 0;
+    let badge = '<span class="badge badge-red">Red</span>';
+    if (irr > TARGET_IRR) badge = '<span class="badge badge-green">Green</span>';
+    else if (irr >= TARGET_IRR - 0.02) badge = '<span class="badge badge-amber">Amber</span>';
+    return `<tr><td>${a.name}</td><td class="num">${i.mwdc||i.mwac||0}</td><td class="num">${fmtPct(irr)}</td><td class="num">$${Math.round(r.metrics.npv||0).toLocaleString()}</td><td class="num">${fmtX(r.metrics.minDscr)}</td><td class="num">$${Math.round(capex).toLocaleString()}</td><td class="num">${i.ppaTenor||0}</td><td>${badge}</td></tr>`;
+  });
+  body.innerHTML = rows.join('');
+  setTxt('ps-irr', fmtPct(totalWeight ? blendedIrrWeighted/totalWeight : 0));
+  setTxt('ps-npv', '$'+Math.round(blendedNpv).toLocaleString());
+  setTxt('ps-capex', '$'+Math.round(blendedCapex).toLocaleString());
+}
+
+function recalc() {
+  syncAssetFromInputs();
+  latestResult = engine.calcAsset(activeAsset);
+  const m = latestResult.metrics;
+  const rows = latestResult.yearly;
+  const i = activeAsset.inputs;
+  setTxt('m-irr', fmtPct(m.irr));
+  setTxt('m-npv', '$'+Math.round(m.npv||0).toLocaleString());
+  setTxt('m-dscr', fmtX(m.minDscr));
+  setTxt('m-payback', m.paybackYear ? m.paybackYear+' yrs' : '—');
+  setTxt('r-unlev-pre', fmtPct(m.irr));
+  setTxt('r-unlev-post', fmtPct((m.irr||0)*0.88));
+  setTxt('r-lev-pre', fmtPct(m.irr));
+  setTxt('r-lev-post', fmtPct((m.irr||0)*0.92));
+  setTxt('r-moic', m.moic ? m.moic.toFixed(2)+'x' : '—');
+  const revTotal = rows.reduce((s,r)=>s+(r.revenue||0),0);
+  const ebitdaTotal = rows.reduce((s,r)=>s+(r.ebitda||0),0);
+  setTxt('r-ebitda', revTotal ? ((ebitdaTotal/revTotal)*100).toFixed(1)+'%' : '—');
+  setTxt('ls-ppa', '$'+(i.ppaPriceYr1||0).toFixed(2)+'/MWh');
+  setTxt('ls-merch', i.revenueMode==='toll' ? '$'+(i.tollPriceKwMonthYr1||0).toFixed(2)+'/kW-mo' : '$'+(i.merchantPriceYr1||0).toFixed(2)+'/MWh');
+  setTxt('ls-irr', fmtPct(m.irr));
+  setTxt('ls-dscr', fmtX(m.minDscr));
+  setTxt('ls-npv', '$'+Math.round(m.npv||0).toLocaleString()+'K');
+  setTxt('memo-irr', fmtPct(m.irr));
+  const capexTotal = (i.totalUnleveredCapex||0) + (i.financingIDC||0);
+  setTxt('su-loan', Math.round(i.loanAmount||0).toLocaleString());
+  setTxt('su-itc', Math.round(latestResult.itcProceeds||0).toLocaleString());
+  setTxt('su-equity', Math.round(latestResult.sponsorEquity||0).toLocaleString());
+  setTxt('su-total', Math.round(capexTotal).toLocaleString());
+  setTxt('a-capex-total', Math.round(i.totalUnleveredCapex||0).toLocaleString());
+  setTxt('a-capex-wdc', i.mwdc ? '$'+((i.totalUnleveredCapex||0)/(i.mwdc*1000)).toFixed(3) : '—');
+  buildRevTable(rows); buildOpexTable(rows); buildDebtTable(rows); buildChart(rows); buildPortfolioSummary(); refreshDealCard();
+  const activeScreen = SCREENS.find(s=>document.getElementById('s-'+s).classList.contains('active')) || 'upload';
+  const idx = SCREENS.indexOf(activeScreen);
+  setTxt('top-title', `${TITLES[idx][0]} — ${activeAsset.name}`);
+}
+
+function initAssetSwitcher() {
+  const s = document.getElementById('asset-switcher');
+  s.innerHTML = Object.entries(engine.assets).map(([k,a])=>`<option value="${k}">${a.name}</option>`).join('');
+  s.value = activeAssetKey;
+}
+
+function switchAsset(key) {
+  if (!engine.assets[key]) return;
+  activeAssetKey = key;
+  engine.activeAsset = key;
+  activeAsset = engine.assets[key];
+  hydrateInputsFromAsset(activeAsset);
+  recalc();
+}
+
+function go(id) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('s-'+id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach((el,i)=>{
+    const idx = SCREENS.indexOf(id);
+    el.classList.remove('active','done');
+    el.querySelector('.nav-num').textContent = i+1;
+    el.querySelector('.nav-num').style.fontSize = '10px';
+    if (i<idx){el.classList.add('done');el.querySelector('.nav-num').textContent='✓';el.querySelector('.nav-num').style.fontSize='9px';}
+    else if(i===idx) el.classList.add('active');
+  });
+  const idx = SCREENS.indexOf(id);
+  setTxt('top-title', `${TITLES[idx][0]} — ${activeAsset.name}`);
+  setTxt('top-sub', TITLES[idx][1]);
+  setTxt('main-cta', CTA[idx]);
+  recalc();
+}
+
+function handleCTA() {
+  const cur = SCREENS.findIndex(s=>document.getElementById('s-'+s).classList.contains('active'));
+  if (cur < SCREENS.length-1) go(SCREENS[cur+1]);
+}
+
+function setScen(_s, el) {
+  document.querySelectorAll('.scen-tab').forEach(t=>t.classList.remove('active'));
+  if (el) el.classList.add('active');
+  recalc();
+}
+
+function sendChat() {
+  const input = document.getElementById('chat-in');
+  const text = input.value.trim();
+  if (!text) return;
+  addMsg(text, 'user');
+  input.value = '';
+  setTimeout(() => addMsg('Model is now wired to the selected asset in SolarLedger. Update assumptions in the input tables to rerun real calculations.', 'ai'), 500);
+}
+function sendSugg(el){ document.getElementById('chat-in').value = el.textContent; sendChat(); }
+function addMsg(text, role){
+  const msgs = document.getElementById('chat-msgs');
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.innerHTML = `<div class="msg-avatar ${role}">${role==='user'?'AN':'SL'}</div><div class="msg-bubble">${text}</div>`;
+  msgs.appendChild(div); msgs.scrollTop = msgs.scrollHeight;
+}
+function addAuditEntry(){ return; }
+
+initAssetSwitcher();
+hydrateInputsFromAsset(activeAsset);
+recalc();
+</script>
+<script>(function () {
+  "use strict";
+
+  function toNumber(value, fallback) {
+    var n = Number(value);
+    return Number.isFinite(n) ? n : fallback;
+  }
+
+  function npvCalc(rate, cashFlows) {
+    var total = 0;
+    for (var i = 0; i < cashFlows.length; i += 1) {
+      total += cashFlows[i] / Math.pow(1 + rate, i);
+    }
+    return total;
+  }
+
+  function calcIRR(cashFlows) {
+    var low = -0.9999, high = 5.0;
+    for (var b = 0; b < 300; b++) {
+      var mid = (low + high) / 2;
+      var v = npvCalc(mid, cashFlows);
+      if (Math.abs(v) < 0.001) return mid;
+      if (v > 0) low = mid; else high = mid;
+    }
+    return (low + high) / 2;
+  }
+
+  function calcAsset(asset) {
+    var inputs = asset.inputs || asset;
+    var assetLife = Math.max(1, Math.floor(toNumber(inputs.assetLife, 35)));
+    var loanTenor = Math.max(0, Math.floor(toNumber(inputs.loanTenor, 0)));
+
+    var yearly = [];
+    var debtOutstanding = [];
+    var leveredCashFlows = [];
+    var cfadsForNpv = [];
+
+    var itcProceeds = toNumber(inputs.fmv, 0) * toNumber(inputs.itcRate, 0);
+    var sponsorEquity =
+      toNumber(inputs.totalUnleveredCapex, 0) +
+      toNumber(inputs.financingIDC, 0) -
+      toNumber(inputs.loanAmount, 0) -
+      itcProceeds -
+      toNumber(inputs.preferredEquity, 0);
+
+    leveredCashFlows.push(-sponsorEquity);
+
+    for (var year = 1; year <= assetLife; year += 1) {
+      // GENERATION
+      var degradationFactor = Math.pow(1 - toNumber(inputs.annualDegradation, 0), year - 1);
+      var grossMWh =
+        toNumber(inputs.mwdc, 0) *
+        toNumber(inputs.yieldKwhKwp, 0) *
+        toNumber(inputs.availabilityFactor, 0) *
+        degradationFactor;
+      var netMWh = grossMWh * (1 - toNumber(inputs.curtailment, 0));
+
+      // REVENUE
+      var ppaPrice = null;
+      var merchantPrice = null;
+      var revenue = 0;
+      if (inputs.revenueMode === "toll") {
+        var tollBase = (toNumber(inputs.mwac, 0) * toNumber(inputs.tollPriceKwMonthYr1, 0) * 12000) / 1000;
+        revenue = tollBase * Math.pow(1 + toNumber(inputs.tollEscalation, 0), year - 1);
+      } else {
+        if (year <= toNumber(inputs.ppaTenor, 0)) {
+          ppaPrice = toNumber(inputs.ppaPriceYr1, 0) * Math.pow(1 + toNumber(inputs.ppaEscalation, 0), year - 1);
+          revenue = netMWh * ppaPrice / 1000;
+        } else {
+          var yearsPostPPA = year - toNumber(inputs.ppaTenor, 0) - 1;
+          merchantPrice = toNumber(inputs.merchantPriceYr1, 0) * Math.pow(1 + toNumber(inputs.merchantEscalation, 0), yearsPostPPA);
+          revenue = netMWh * merchantPrice / 1000;
+        }
+      }
+
+      // OPEX
+      var opexKeys = [
+        "pvo",
+        "utilityOM",
+        "parasiticLoad",
+        "uncoveredOM",
+        "telecom",
+        "insurance",
+        "assetMgmt",
+        "auditTax",
+        "lcFees",
+        "otherOpex",
+        "operatingLease"
+      ];
+      var opexByLine = {};
+      var totalOpex = 0;
+
+      for (var i = 0; i < opexKeys.length; i += 1) {
+        var key = opexKeys[i];
+        var yr1Cost = toNumber((inputs.opex || {})[key], 0);
+        var escalationRate = toNumber((inputs.opexEscalation || {})[key], 0);
+        var lineValue = yr1Cost * Math.pow(1 + escalationRate, year - 1);
+        opexByLine[key] = lineValue;
+        totalOpex += lineValue;
+      }
+
+      var reserve = inputs.inverterReserve || {};
+      var inverterReserveCost = 0;
+      if (
+        year >= toNumber(reserve.startYear, 0) &&
+        year <= toNumber(reserve.endYear, 0)
+      ) {
+        inverterReserveCost = toNumber(reserve.annualCost, 0);
+      }
+      opexByLine.inverterReserve = inverterReserveCost;
+      totalOpex += inverterReserveCost;
+
+      // EBITDA
+      var ebitda = revenue - totalOpex;
+      var ebitdaMargin = revenue !== 0 ? ebitda / revenue : null;
+
+      // DEBT SCHEDULE
+      var beginningBalance = year === 1
+        ? toNumber(inputs.loanAmount, 0)
+        : debtOutstanding[year - 2] - yearly[year - 2].amortization;
+      if (beginningBalance < 0) beginningBalance = 0;
+
+      var amortization = year <= loanTenor
+        ? toNumber(inputs.loanAmount, 0) / loanTenor
+        : 0;
+      amortization = Math.min(amortization, beginningBalance);
+
+      var interest = beginningBalance * toNumber(inputs.interestRate, 0);
+      var totalDebtService = amortization + interest;
+      var cfads = ebitda - totalDebtService;
+      var dscr = totalDebtService > 0 ? ebitda / totalDebtService : null;
+
+      debtOutstanding.push(beginningBalance);
+      cfadsForNpv.push(cfads);
+      leveredCashFlows.push(cfads);
+
+      yearly.push({
+        year: year,
+        degradationFactor: degradationFactor,
+        grossMWh: grossMWh,
+        netMWh: netMWh,
+        ppaPrice: ppaPrice,
+        merchantPrice: merchantPrice,
+        revenue: revenue,
+        opexByLine: opexByLine,
+        totalOpex: totalOpex,
+        ebitda: ebitda,
+        ebitdaMargin: ebitdaMargin,
+        beginningBalance: beginningBalance,
+        amortization: amortization,
+        interest: interest,
+        totalDebtService: totalDebtService,
+        cfads: cfads,
+        dscr: dscr
+      });
+    }
+
+    // IRR
+    var irr = calcIRR(leveredCashFlows);
+
+    // NPV
+    var discountRate = toNumber(inputs.discountRate, 0);
+    var npv = 0;
+    for (var n = 1; n <= assetLife; n += 1) {
+      npv += cfadsForNpv[n - 1] / Math.pow(1 + discountRate, n);
+    }
+
+    // LLCR at year 1
+    var npvCfadsLoanLife = 0;
+    var loanLifeYears = Math.min(loanTenor, assetLife);
+    for (var l = 1; l <= loanLifeYears; l += 1) {
+      npvCfadsLoanLife += cfadsForNpv[l - 1] / Math.pow(1 + discountRate, l);
+    }
+    var outstandingDebt = toNumber(inputs.loanAmount, 0);
+    var llcr = outstandingDebt > 0 ? npvCfadsLoanLife / outstandingDebt : null;
+
+    // MOIC
+    var totalEquityReturned = 0;
+    for (var c = 1; c < leveredCashFlows.length; c += 1) {
+      if (leveredCashFlows[c] > 0) totalEquityReturned += leveredCashFlows[c];
+    }
+    var moic = sponsorEquity !== 0 ? totalEquityReturned / sponsorEquity : null;
+
+    // PAYBACK
+    var cumulativeCfads = 0;
+    var paybackYear = null;
+    for (var p = 0; p < cfadsForNpv.length; p += 1) {
+      cumulativeCfads += cfadsForNpv[p];
+      if (paybackYear === null && cumulativeCfads > sponsorEquity) {
+        paybackYear = p + 1;
+      }
+    }
+
+    // MIN DSCR
+    var minDscr = null;
+    for (var d = 0; d < yearly.length; d += 1) {
+      var y = yearly[d];
+      if (y.beginningBalance > 0 && y.dscr !== null) {
+        minDscr = minDscr === null ? y.dscr : Math.min(minDscr, y.dscr);
+      }
+    }
+
+    return {
+      name: asset.name || "asset",
+      inputs: inputs,
+      itcProceeds: itcProceeds,
+      sponsorEquity: sponsorEquity,
+      leveredCashFlows: leveredCashFlows,
+      yearly: yearly,
+      metrics: {
+        irr: irr,
+        npv: npv,
+        llcr: llcr,
+        moic: moic,
+        paybackYear: paybackYear,
+        minDscr: minDscr
+      }
+    };
+  }
+
+  var assets = {
+    yarotek: {
+      name: "Yarotek Portfolio",
+      type: "Utility-Scale Development",
+      market: "Duke NC",
+      badgeColor: "blue",
+      inputs: {
+        mwdc: 82,
+        yieldKwhKwp: 1710,
+        dcAcRatio: 1.43,
+        availabilityFactor: 0.985,
+        annualDegradation: 0.004,
+        curtailment: 0.02,
+        assetLife: 35,
+        codYear: 2030,
+
+        ppaPriceYr1: 59,
+        ppaEscalation: 0.0,
+        ppaTenor: 5,
+        merchantPriceYr1: 65,
+        merchantEscalation: 0.015,
+
+        opex: {
+          pvo: 479,
+          utilityOM: 68,
+          parasiticLoad: 60,
+          uncoveredOM: 70,
+          telecom: 34,
+          insurance: 321,
+          assetMgmt: 70,
+          auditTax: 19,
+          lcFees: 113,
+          otherOpex: 117,
+          operatingLease: 582
+        },
+        opexEscalation: {
+          pvo: 0.02,
+          utilityOM: 0.0,
+          parasiticLoad: 0.01,
+          uncoveredOM: 0.02,
+          telecom: 0.02,
+          insurance: 0.0,
+          assetMgmt: 0.02,
+          auditTax: 0.02,
+          lcFees: 0.0,
+          otherOpex: 0.0,
+          operatingLease: 0.02
+        },
+        inverterReserve: {
+          startYear: 16,
+          endYear: 20,
+          annualCost: 250
+        },
+
+        totalUnleveredCapex: 110432,
+        financingIDC: 6000,
+        loanAmount: 27500,
+        interestRate: 0.085,
+        loanTenor: 20,
+        itcRate: 0.40,
+        fmv: 142545,
+        preferredEquity: 17132,
+        discountRate: 0.08
+      }
+    },
+    dgbess: {
+      name: "DG BESS NY",
+      type: "Battery Storage",
+      market: "NYISO",
+      badgeColor: "teal",
+      inputs: {
+        mwdc: 0,
+        mwac: 5,
+        mwh: 20,
+        yieldKwhKwp: 0,
+        dcAcRatio: 1,
+        availabilityFactor: 1,
+        annualDegradation: 0,
+        curtailment: 0,
+        assetLife: 30,
+        codYear: 2029,
+        revenueMode: "toll",
+        tollPriceKwMonthYr1: 12,
+        tollEscalation: 0.015,
+        ppaPriceYr1: 0,
+        ppaEscalation: 0,
+        ppaTenor: 15,
+        merchantPriceYr1: 0,
+        merchantEscalation: 0,
+        opex: {
+          pvo: 20,
+          utilityOM: 0,
+          parasiticLoad: 0,
+          uncoveredOM: 12,
+          telecom: 6,
+          insurance: 30,
+          assetMgmt: 22,
+          auditTax: 4,
+          lcFees: 0,
+          otherOpex: 8,
+          operatingLease: 0
+        },
+        opexEscalation: {
+          pvo: 0.02,
+          utilityOM: 0.02,
+          parasiticLoad: 0.02,
+          uncoveredOM: 0.02,
+          telecom: 0.02,
+          insurance: 0.03,
+          assetMgmt: 0.02,
+          auditTax: 0.02,
+          lcFees: 0.02,
+          otherOpex: 0.02,
+          operatingLease: 0.02
+        },
+        inverterReserve: { startYear: 1, endYear: 0, annualCost: 0 },
+        totalUnleveredCapex: 11148,
+        financingIDC: 0,
+        loanAmount: 4470,
+        interestRate: 0.105,
+        loanTenor: 7,
+        itcRate: 0.40,
+        fmv: 13500,
+        preferredEquity: 1885,
+        discountRate: 0.08
+      }
+    },
+    foley: {
+      name: "Foley (Alabama)",
+      type: "Operating Asset Acquisition",
+      market: "Alabama",
+      badgeColor: "amber",
+      inputs: {
+        mwdc: 106.1,
+        yieldKwhKwp: 1906,
+        dcAcRatio: 1.3,
+        availabilityFactor: 0.98,
+        annualDegradation: 0.0045,
+        curtailment: 0,
+        assetLife: 40,
+        codYear: 2026,
+        ppaPriceYr1: 50,
+        ppaEscalation: 0,
+        ppaTenor: 17,
+        merchantPriceYr1: 45,
+        merchantEscalation: 0.02,
+        opex: {
+          pvo: 583,
+          utilityOM: 0,
+          parasiticLoad: 77,
+          uncoveredOM: 85,
+          telecom: 44,
+          insurance: 415,
+          assetMgmt: 85,
+          auditTax: 24,
+          lcFees: 96,
+          otherOpex: 50,
+          operatingLease: 0
+        },
+        opexEscalation: {
+          pvo: 0.02,
+          utilityOM: 0.02,
+          parasiticLoad: 0.02,
+          uncoveredOM: 0.02,
+          telecom: 0.02,
+          insurance: 0.03,
+          assetMgmt: 0.02,
+          auditTax: 0.02,
+          lcFees: 0.02,
+          otherOpex: 0.02,
+          operatingLease: 0.02
+        },
+        inverterReserve: { startYear: 1, endYear: 0, annualCost: 0 },
+        totalUnleveredCapex: 160734,
+        financingIDC: 7036,
+        loanAmount: 85000,
+        interestRate: 0.075,
+        loanTenor: 20,
+        itcRate: 0,
+        fmv: 206690,
+        preferredEquity: 0,
+        discountRate: 0.08
+      }
+    },
+    bsu: {
+      name: "BSU Operating Portfolio",
+      type: "C&I Operating Portfolio",
+      market: "Northeast US",
+      badgeColor: "green",
+      inputs: {
+        mwdc: 14,
+        yieldKwhKwp: 1450,
+        dcAcRatio: 1.15,
+        availabilityFactor: 0.99,
+        annualDegradation: 0.005,
+        curtailment: 0,
+        assetLife: 30,
+        codYear: 2023,
+        ppaPriceYr1: 172,
+        ppaEscalation: 0.04,
+        ppaTenor: 25,
+        merchantPriceYr1: 120,
+        merchantEscalation: 0.02,
+        opex: {
+          pvo: 81,
+          utilityOM: 0,
+          parasiticLoad: 0,
+          uncoveredOM: 11,
+          telecom: 8,
+          insurance: 42,
+          assetMgmt: 34,
+          auditTax: 5,
+          lcFees: 0,
+          otherOpex: 12,
+          operatingLease: 48
+        },
+        opexEscalation: {
+          pvo: 0.02,
+          utilityOM: 0.02,
+          parasiticLoad: 0.02,
+          uncoveredOM: 0.02,
+          telecom: 0.02,
+          insurance: 0.05,
+          assetMgmt: 0.02,
+          auditTax: 0.02,
+          lcFees: 0.02,
+          otherOpex: 0.02,
+          operatingLease: 0.04
+        },
+        inverterReserve: { startYear: 1, endYear: 0, annualCost: 0 },
+        totalUnleveredCapex: 28000,
+        financingIDC: 0,
+        loanAmount: 12000,
+        interestRate: 0.065,
+        loanTenor: 15,
+        itcRate: 0.26,
+        fmv: 35000,
+        preferredEquity: 0,
+        discountRate: 0.08
+      }
+    }
+  };
+
+  var activeAsset = "yarotek";
+
+  window.SolarLedger = {
+    assets: assets,
+    calcAsset: calcAsset,
+    activeAsset: activeAsset
+  };
+})();
+</script></body>
+</html>
